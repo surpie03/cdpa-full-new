@@ -1,0 +1,32 @@
+{
+  "name": "cdpa-compliance-system",
+  "version": "2.0.0",
+  "description": "Cyber & Data Protection Act [Chapter 12:07] Zimbabwe — Full-Stack Compliance System",
+  "main": "backend/server.js",
+  "scripts": {
+    "start":      "node backend/server.js",
+    "dev":        "nodemon backend/server.js",
+    "setup":      "node scripts/setup.js",
+    "seed":       "node scripts/seed.js",
+    "build":      "echo 'No build step needed for plain HTML frontend'",
+    "vercel-build": "echo 'Vercel build complete'",
+    "render-build": "echo 'Render build complete - no frontend build needed'"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "bcryptjs":     "^2.4.3",
+    "cors":         "^2.8.5",
+    "dotenv":       "^16.4.5",
+    "express":      "^4.18.3",
+    "jsonwebtoken": "^9.0.2",
+    "multer":       "^1.4.5-lts.1",
+    "pg":           "^8.11.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  },
+  "engines": { "node": ">=16.0.0" },
+  "license": "MIT"
+}

@@ -1,0 +1,23 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"sqltools.connections": [
+			{
+				"ssh": "Disabled",
+				"previewLimit": 50,
+				"server": "localhost",
+				"port": 5432,
+				"driver": "PostgreSQL",
+				"name": "CPDA Local",
+				"database": "cdpa_system",
+				"username": "postgres",
+				"password": "masie*03e",
+				"connectionTimeout": 50
+			}
+		]
+	}
+}

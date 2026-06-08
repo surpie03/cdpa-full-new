@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: cdpa-compliance-system
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+    healthCheckPath: /
+    # We don't need a publish directory because Express serves the frontend directly
+    # publishDirectory: frontend
