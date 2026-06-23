@@ -575,89 +575,49 @@ async function ensureAdminUsers() {
   console.log('  ➜ Checking admin users...');
   
   try {
-    // Check if system administrator exists
-    const adminCheck = await pool.query(
-      "SELECT id FROM users WHERE role='system_administrator' LIMIT 1"
-    );
-    
-    if (adminCheck.rows.length === 0) {
-      console.log('    📝 Creating System Administrator account...');
-      const adminUsername = 'sysadmin';
-      const adminPassword = generatePassword();
-      const adminHash = await bcrypt.hash(adminPassword, 12);
-      
-      await pool.query(
-        `INSERT INTO users (username, password_hash, role, email, is_active, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
-         ON CONFLICT (username) DO NOTHING`,
-        [adminUsername, adminHash, 'system_administrator', 'admin@cdpa.local', true]
-      );
-      
-      console.log(`    ✅ System Administrator created (username: sysadmin, password: ${adminPassword})`);
-      
-      // Save credentials to file
-      const credentialsFile = path.join(__dirname, '..', 'admin_credentials.txt');
-      const timestamp = new Date().toISOString();
-      const credentials = `CDPA SYSTEM - ADMIN CREDENTIALS\n${timestamp}\n\nSystem Administrator\nUsername: sysadmin\nPassword: ${adminPassword}\n`;
-      fs.appendFileSync(credentialsFile, credentials);
-    } else {
-      console.log('    ✅ System Administrator exists');
-    }
+    // Define fixed credentials from admin_credentials.txt
+    const credentials = [
+      { username: 'sysadmin', password: 'Admin123!', role: 'system_administrator', email: 'admin@cdpa.local' },
+      { username: 'dpo', password: 'Dpo123!', role: 'data_protection_officer', email: 'dpo@cdpa.local' },
+      { username: 'assessor', password: 'Assess123!', role: 'potraz_assessor', email: 'assessor@cdpa.local' }
+    ];
 
-    // Check if data protection officer exists
-    const dpoCheck = await pool.query(
-      "SELECT id FROM users WHERE role='data_protection_officer' LIMIT 1"
-    );
-    
-    if (dpoCheck.rows.length === 0) {
-      console.log('    📝 Creating Data Protection Officer account...');
-      const dpoUsername = 'dpo';
-      const dpoPassword = generatePassword();
-      const dpoHash = await bcrypt.hash(dpoPassword, 12);
-      
-      await pool.query(
-        `INSERT INTO users (username, password_hash, role, email, is_active, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
-         ON CONFLICT (username) DO NOTHING`,
-        [dpoUsername, dpoHash, 'data_protection_officer', 'dpo@cdpa.local', true]
-      );
-      
-      console.log(`    ✅ Data Protection Officer created (username: dpo, password: ${dpoPassword})`);
-      
-      // Save credentials to file
-      const credentialsFile = path.join(__dirname, '..', 'admin_credentials.txt');
-      const credentials = `\n\nData Protection Officer\nUsername: dpo\nPassword: ${dpoPassword}\n`;
-      fs.appendFileSync(credentialsFile, credentials);
-    } else {
-      console.log('    ✅ Data Protection Officer exists');
-    }
-
-    // Check if POTRAZ Assessor exists
-    const assessorCheck = await pool.query(
-      "SELECT id FROM users WHERE role='potraz_assessor' LIMIT 1"
-    );
-
-    if (assessorCheck.rows.length === 0) {
-      console.log('    📝 Creating POTRAZ Assessor account...');
-      const assessorUsername = 'assessor';
-      const assessorPassword = generatePassword();
-      const assessorHash = await bcrypt.hash(assessorPassword, 12);
-
-      await pool.query(
-        `INSERT INTO users (username, password_hash, role, email, is_active, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
-         ON CONFLICT (username) DO NOTHING`,
-        [assessorUsername, assessorHash, 'potraz_assessor', 'assessor@cdpa.local', true]
+    for (const cred of credentials) {
+      // Check if user exists
+      const userCheck = await pool.query(
+        "SELECT id, password_hash FROM users WHERE username = $1 LIMIT 1",
+        [cred.username]
       );
 
-      console.log(`    ✅ POTRAZ Assessor created (username: assessor, password: ${assessorPassword})`);
-
-      // Save credentials to file
-      const credentialsFile = path.join(__dirname, '..', 'admin_credentials.txt');
-      const credentials = `\n\nPOTRAZ Assessor\nUsername: assessor\nPassword: ${assessorPassword}\n`;
-      fs.appendFileSync(credentialsFile, credentials);
-    } else {
-      console.log('    ✅ POTRAZ Assessor exists');
+      if (userCheck.rows.length === 0) {
+        // User doesn't exist, create them
+        console.log(`    📝 Creating ${cred.role.replace(/_/g, ' ')} account...`);
+        const hash = await bcrypt.hash(cred.password, 12);
+        
+        await pool.query(
+          `INSERT INTO users (username, password_hash, role, email, is_active, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+           ON CONFLICT (username) DO NOTHING`,
+          [cred.username, hash, cred.role, cred.email, true]
+        );
+        
+        console.log(`    ✅ ${cred.role.replace(/_/g, ' ')} created (username: ${cred.username}, password: ${cred.password})`);
+      } else {
+        // User exists, verify password is correct
+        const valid = await bcrypt.compare(cred.password, userCheck.rows[0].password_hash);
+        if (!valid) {
+          // Password is incorrect, update it
+          console.log(`    🔄 Updating password for ${cred.username}...`);
+          const hash = await bcrypt.hash(cred.password, 12);
+          await pool.query(
+            "UPDATE users SET password_hash = $1, updated_at = NOW() WHERE username = $2",
+            [hash, cred.username]
+          );
+          console.log(`    ✅ Password updated for ${cred.username}`);
+        } else {
+          console.log(`    ✅ ${cred.role.replace(/_/g, ' ')} exists and password is correct`);
+        }
+      }
     }
     
     console.log('  ✅ Admin users verified');
