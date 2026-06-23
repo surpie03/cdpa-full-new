@@ -81,35 +81,35 @@ const upload = multer({
 
 // ─── ROLE PERMISSIONS (Least Privilege) ──────────────
 // ══════════════════════════════════════════════════════════
-// LEAST PRIVILEGE PRINCIPLE - Data Controller Role Removed
-// DPO (Data Protection Officer) - Only Assessment Role
+// 3 ROLES:
+//   1. system_administrator  — Full access + user management
+//   2. data_protection_officer — Data capture across all modules + reports
+//   3. potraz_assessor        — View-only + leave comments on orgs/DPOs
 // ══════════════════════════════════════════════════════════
 const PERMISSIONS = {
-  data_protection_officer: [
-    // Assessment & Compliance Modules - FULL ACCESS
-    'create_assessment',        // Can create assessments
-    'submit_checklist',         // Can submit assessment responses
-    'view_all_assessments',     // Can view all assessments
-    'review_assessments',       // Can review assessments
-    'upload_evidence',          // Can upload evidence
+  // ── POTRAZ ASSESSOR ─────────────────────────────────
+  // Read-only access to all reports + ability to leave comments
+  potraz_assessor: [
+    'view_all_assessments',     // Can view all compliance assessments
     'view_all_gap',             // Can view all gap analyses
-    'save_gap',                 // Can save/edit gap analyses
     'view_tech_recommendations',// Can view tech recommendations
     'view_all_ropa',            // Can view ROPA records
-    'create_ropa',              // Can create ROPA
     'view_all_dpia',            // Can view DPIA assessments
-    'create_dpia',              // Can create DPIA
-    'approve_dpia',             // Can approve DPIA
-    'validate_controller',      // Can validate controllers
-    // Organization Reports (NOT system-wide)
-    'generate_org_reports',     // Can generate organization-level reports
+    'view_all_reports',         // Can view organisation reports
+    'generate_org_reports',     // Can generate/view organisation reports
+    'leave_assessor_comment',   // Can leave comments on orgs/DPOs
+    'view_assessor_comments',   // Can view assessor comments
     // NO Permissions:
+    // ✗ NO data creation or editing
+    // ✗ NO evidence uploads
     // ✗ NO user management
     // ✗ NO audit logs
-    // ✗ NO admin dashboards
   ],
-  system_administrator: [
-    // Assessment & Compliance Modules - FULL ACCESS
+
+  // ── DATA PROTECTION OFFICER ─────────────────────────
+  // Full data capture across all modules + download reports
+  data_protection_officer: [
+    // Assessment & Compliance Modules - FULL CAPTURE ACCESS
     'create_assessment',        // Can create assessments
     'submit_checklist',         // Can submit assessment responses
     'view_all_assessments',     // Can view all assessments
@@ -123,18 +123,56 @@ const PERMISSIONS = {
     'view_all_dpia',            // Can view DPIA assessments
     'create_dpia',              // Can create DPIA
     'approve_dpia',             // Can approve DPIA
-    'validate_controller',      // Can validate controllers
-    'generate_org_reports',     // Can generate organization-level reports
-    // System Administration
-    'manage_users',             // Can create/modify/delete users
-    'reset_passwords',          // Can reset user passwords
+    'validate_controller',      // Can run controller validation
+    // Reports
+    'view_all_reports',         // Can view all org reports
+    'generate_org_reports',     // Can generate/download org reports
+    'export_reports',           // Can export reports
+    // Comments - can view assessor comments
+    'view_assessor_comments',   // Can view POTRAZ comments
+    // NO Permissions:
+    // ✗ NO user management
+    // ✗ NO audit logs access
+    // ✗ NO admin dashboards
+  ],
+
+  // ── SYSTEM ADMINISTRATOR ────────────────────────────
+  // Full access to everything + user management
+  system_administrator: [
+    // Assessment & Compliance Modules - FULL ACCESS
+    'create_assessment',
+    'submit_checklist',
+    'view_all_assessments',
+    'review_assessments',
+    'upload_evidence',
+    'view_all_gap',
+    'save_gap',
+    'view_tech_recommendations',
+    'view_all_ropa',
+    'create_ropa',
+    'view_all_dpia',
+    'create_dpia',
+    'approve_dpia',
+    'validate_controller',
+    // Reports
+    'view_all_reports',
+    'generate_org_reports',
+    'export_reports',
+    // Comments
+    'view_assessor_comments',
+    'leave_assessor_comment',
+    // System Administration - FULL USER MANAGEMENT
+    'manage_users',             // Can create/modify/delete ALL users
+    'reset_passwords',          // Can reset any user password
     'manage_system',            // Can configure system settings
-    'view_audit_logs',          // Can view who did what
-    'export_audit_logs',        // Can export audit trail
+    'view_audit_logs',          // Can view complete audit trail
+    'export_audit_logs',        // Can export audit logs
     'manage_dpo',               // Can manage DPO accounts
     'manage_system_admin',      // Can manage admin accounts
+    'manage_potraz',            // Can manage POTRAZ assessor accounts
   ]
 };
+
 
 // ─── AUTH MIDDLEWARE ─────────────────────────────────
 const authenticate = async (req, res, next) => {
@@ -255,34 +293,11 @@ app.get('/api/health', async (req, res) => {
 
 // ─── AUTH ─────────────────────────────────────────────
 
-// Register (Data Controller or DPO only — Admin is created via seed)
-app.post('/api/auth/register', async (req, res) => {
-  const { username, password, role, dpo_number, email } = req.body;
-  if (!username || !password || !role) {
-    return res.status(400).json({ error: 'username, password and role are required' });
-  }
-  if (role !== 'data_protection_officer') {
-    return res.status(400).json({ error: 'Only Data Protection Officers can self-register. System Administrators and admins must be created by existing admins' });
-  }
-  if (!dpo_number) {
-    return res.status(400).json({ error: 'DPO practice number is required' });
-  }
-  if (password.length < 6) {
-    return res.status(400).json({ error: 'Password must be at least 6 characters' });
-  }
-  try {
-    const hash   = await bcrypt.hash(password, 12);
-    const result = await pool.query(
-      'INSERT INTO users (username, password_hash, role, dpo_number, email) VALUES ($1,$2,$3,$4,$5) RETURNING id, username, role, dpo_number, email',
-      [username.trim(), hash, role, dpo_number.trim(), email || null]
-    );
-    auditLog(result.rows[0].id, 'USER_REGISTERED', 'users', { username, role, dpo_number }, req.ip);
-    res.status(201).json({ message: 'Account created successfully', user: result.rows[0] });
-  } catch (e) {
-    if (e.code === '23505') return res.status(409).json({ error: 'Username already exists' });
-    console.error(e);
-    res.status(500).json({ error: 'Server error during registration' });
-  }
+// Registration is disabled — all accounts are created by the System Administrator
+app.post('/api/auth/register', (req, res) => {
+  return res.status(403).json({
+    error: 'Self-registration is disabled. Please contact your System Administrator to create an account.'
+  });
 });
 
 // Login
@@ -466,15 +481,16 @@ app.get('/api/assessment', authenticate, async (req, res) => {
   try {
     let q, params;
     
-    if (req.user.role === 'data_protection_officer' || req.user.role === 'system_administrator') {
-      // DPO & System Admins: Can view ALL assessments (no org restriction)
+    const allowed = ['data_protection_officer', 'system_administrator', 'potraz_assessor'];
+    if (allowed.includes(req.user.role)) {
+      // DPO, SysAdmin & POTRAZ Assessor: Can view ALL assessments
       q = `SELECT ca.*, u.username 
            FROM compliance_assessments ca 
            JOIN users u ON ca.user_id=u.id 
            ORDER BY ca.created_at DESC`;
       params = [];
     } else {
-      return res.status(403).json({ error: 'Invalid role' });
+      return res.status(403).json({ error: 'Access denied' });
     }
     
     const result = await pool.query(q, params);
@@ -491,9 +507,10 @@ app.get('/api/assessment/:id', authenticate, async (req, res) => {
     const aRes = await pool.query('SELECT * FROM compliance_assessments WHERE id=$1', [assessmentId]);
     if (!aRes.rows[0]) return res.status(404).json({ error: 'Assessment not found' });
 
-    // Check access - DPO & System Admin can access all assessments
-    if (req.user.role !== 'data_protection_officer' && req.user.role !== 'system_administrator') {
-      return res.status(403).json({ error: 'Invalid role' });
+    // Check access - DPO, SysAdmin & POTRAZ Assessor can view assessments
+    const allowedRoles = ['data_protection_officer', 'system_administrator', 'potraz_assessor'];
+    if (!allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({ error: 'Access denied' });
     }
 
     const responses = await pool.query(
@@ -597,14 +614,15 @@ app.post('/api/gap', authenticate, authorize('save_gap'), async (req, res) => {
   }
 });
 
-// Get gap analysis - DPO & System Admin can view ALL gaps
+// Get gap analysis - DPO, System Admin & POTRAZ Assessor can view ALL gaps
 app.get('/api/gap', authenticate, async (req, res) => {
   try {
     const assessment_id = req.query.assessment_id;
     let q, params;
-    
-    if (req.user.role === 'data_protection_officer' || req.user.role === 'system_administrator') {
-      // DPO & System Admin: Can view ALL gaps (no org restriction)
+    const viewRoles = ['data_protection_officer', 'system_administrator', 'potraz_assessor'];
+
+    if (viewRoles.includes(req.user.role)) {
+      // All 3 privileged roles can view ALL gaps
       if (assessment_id) {
         q = `SELECT g.*, u.username FROM gap_analysis g 
              JOIN users u ON g.user_id=u.id 
@@ -618,7 +636,7 @@ app.get('/api/gap', authenticate, async (req, res) => {
         params = [];
       }
     } else {
-      return res.status(403).json({ error: 'Invalid role' });
+      return res.status(403).json({ error: 'Access denied' });
     }
     
     const result = await pool.query(q, params);
@@ -651,6 +669,25 @@ app.get('/api/tech-recommendations/:type', authenticate, authorize('view_tech_re
   if (!recs) return res.status(400).json({ error: "type must be 'electronic' or 'manual'" });
   auditLog(req.user.id, 'TECH_RECS_VIEWED', 'tech_recommendations', { type }, req.ip);
   res.json({ type, sections: recs });
+});
+
+// Get saved tech recommendations for an organization and type
+app.get('/api/tech-recommendations/:org_name/:type', authenticate, authorize('view_tech_recommendations'), async (req, res) => {
+  const { org_name, type } = req.params;
+  try {
+    const result = await pool.query(
+      'SELECT * FROM tech_recommendations WHERE organization_name=$1 AND type=$2 ORDER BY created_at DESC LIMIT 1',
+      [org_name, type]
+    );
+    if (result.rows.length > 0) {
+      res.json({ saved: true, tech_data: JSON.parse(result.rows[0].tech_data) });
+    } else {
+      res.json({ saved: false });
+    }
+  } catch (e) {
+    console.error('Error getting tech recommendations:', e);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // Save tech recommendations worksheet
@@ -808,19 +845,20 @@ app.post('/api/ropa', authenticate, authorize('create_ropa'), async (req, res) =
   }
 });
 
-// List ROPAs - DPO can view ALL ROPA records
+// List ROPAs - DPO, SysAdmin & POTRAZ Assessor can view ALL ROPA records
 app.get('/api/ropa', authenticate, async (req, res) => {
   try {
     let q, params;
+    const viewRoles = ['data_protection_officer', 'system_administrator', 'potraz_assessor'];
     
-    if (req.user.role === 'data_protection_officer' || req.user.role === 'system_administrator') {
-      // DPO & System Admin: Can view ALL ROPA records (no org restriction)
+    if (viewRoles.includes(req.user.role)) {
+      // All 3 privileged roles can view ALL ROPA records
       q = `SELECT r.*, u.username FROM ropa_records r 
            JOIN users u ON r.user_id=u.id 
            ORDER BY r.created_at DESC`;
       params = [];
     } else {
-      return res.status(403).json({ error: 'Invalid role' });
+      return res.status(403).json({ error: 'Access denied' });
     }
     
     const result = await pool.query(q, params);
@@ -830,16 +868,17 @@ app.get('/api/ropa', authenticate, async (req, res) => {
   }
 });
 
-// Get single ROPA with activities - DPO full access
+// Get single ROPA with activities - DPO, SysAdmin & POTRAZ full view access
 app.get('/api/ropa/:id', authenticate, async (req, res) => {
   try {
     const ropa = await pool.query('SELECT * FROM ropa_records WHERE id=$1', [req.params.id]);
     if (!ropa.rows[0]) return res.status(404).json({ error: 'ROPA not found' });
     
-    if (req.user.role !== 'data_protection_officer' && req.user.role !== 'system_administrator') {
+    const viewRoles = ['data_protection_officer', 'system_administrator', 'potraz_assessor'];
+    if (!viewRoles.includes(req.user.role)) {
       auditLog(req.user.id, 'UNAUTHORIZED_ACCESS_ATTEMPT', 'ropa', 
                { ropa_id: req.params.id }, req.ip);
-      return res.status(403).json({ error: 'Invalid role' });
+      return res.status(403).json({ error: 'Access denied' });
     }
     
     const activities = await pool.query(
@@ -935,19 +974,20 @@ app.post('/api/dpia', authenticate, authorize('create_dpia'), async (req, res) =
   }
 });
 
-// List DPIAs - DPO & System Admin can view ALL DPIA assessments
+// List DPIAs - DPO, SysAdmin & POTRAZ Assessor can view ALL DPIA assessments
 app.get('/api/dpia', authenticate, async (req, res) => {
   try {
     let q, params;
+    const viewRoles = ['data_protection_officer', 'system_administrator', 'potraz_assessor'];
     
-    if (req.user.role === 'data_protection_officer' || req.user.role === 'system_administrator') {
-      // DPO & System Admin: Can view ALL DPIA records (no org restriction)
+    if (viewRoles.includes(req.user.role)) {
+      // All 3 privileged roles can view ALL DPIA records
       q = `SELECT d.*, u.username FROM dpia_assessments d 
            JOIN users u ON d.user_id=u.id 
            ORDER BY d.created_at DESC`;
       params = [];
     } else {
-      return res.status(403).json({ error: 'Invalid role' });
+      return res.status(403).json({ error: 'Access denied' });
     }
     
     const result = await pool.query(q, params);
@@ -957,16 +997,17 @@ app.get('/api/dpia', authenticate, async (req, res) => {
   }
 });
 
-// Get DPIA detail - DPO full access
+// Get DPIA detail - DPO, SysAdmin & POTRAZ Assessor view access
 app.get('/api/dpia/:id', authenticate, async (req, res) => {
   try {
     const dpia = await pool.query('SELECT * FROM dpia_assessments WHERE id=$1', [req.params.id]);
     if (!dpia.rows[0]) return res.status(404).json({ error: 'DPIA not found' });
     
-    if (req.user.role !== 'data_protection_officer' && req.user.role !== 'system_administrator') {
+    const viewRoles = ['data_protection_officer', 'system_administrator', 'potraz_assessor'];
+    if (!viewRoles.includes(req.user.role)) {
       auditLog(req.user.id, 'UNAUTHORIZED_ACCESS_ATTEMPT', 'dpia', 
                { dpia_id: req.params.id }, req.ip);
-      return res.status(403).json({ error: 'Invalid role' });
+      return res.status(403).json({ error: 'Access denied' });
     }
     
     const measures = await pool.query('SELECT * FROM dpia_measure_catalog WHERE dpia_id=$1 ORDER BY measure_type, id', [req.params.id]);
@@ -1050,26 +1091,26 @@ app.get('/api/sga', authenticate, async (req, res) => {
   const assessment_id = req.query.assessment_id;
   try {
     let q, params;
-    const isDpoAdmin = ['data_protection_officer','system_administrator'].includes(req.user.role);
+    const isPrivileged = ['data_protection_officer','system_administrator','potraz_assessor'].includes(req.user.role);
     
     if (assessment_id) {
       // Get SGA for specific assessment
-      q = isDpoAdmin
+      q = isPrivileged
         ? `SELECT s.*, u.username FROM security_gap_analysis s
            JOIN users u ON s.user_id=u.id
            WHERE s.assessment_id=$1 ORDER BY s.domain_category, s.control_item`
         : `SELECT * FROM security_gap_analysis WHERE assessment_id=$1 AND user_id=$2
            ORDER BY domain_category, control_item`;
-      params = isDpoAdmin ? [assessment_id] : [assessment_id, req.user.id];
+      params = isPrivileged ? [assessment_id] : [assessment_id, req.user.id];
     } else {
-      // Get all user's SGA
-      q = isDpoAdmin
+      // Get all SGA
+      q = isPrivileged
         ? `SELECT s.*, u.username FROM security_gap_analysis s
            JOIN users u ON s.user_id=u.id
            WHERE s.assessment_id IS NULL ORDER BY s.created_at DESC`
         : `SELECT * FROM security_gap_analysis WHERE user_id=$1 AND assessment_id IS NULL
            ORDER BY created_at DESC`;
-      params = isDpoAdmin ? [] : [req.user.id];
+      params = isPrivileged ? [] : [req.user.id];
     }
     
     const result = await pool.query(q, params);
@@ -1277,13 +1318,129 @@ app.get('/api/department-assessment/:id', authenticate, async (req, res) => {
 app.get('/api/reports/organizations', authenticate, reportsController.getOrganizations);
 app.get('/api/reports/organization/:orgName', authenticate, reportsController.getOrganizationReport);
 
+// ─── ASSESSOR COMMENTS (POTRAZ) ───────────────────────
+
+// Create a comment (POTRAZ Assessor or SysAdmin)
+app.post('/api/assessor-comments', authenticate, authorize('leave_assessor_comment'), async (req, res) => {
+  const { organization_name, target_dpo_username, comment_text, comment_type } = req.body;
+  if (!comment_text || !comment_text.trim()) {
+    return res.status(400).json({ error: 'comment_text is required' });
+  }
+  if (!organization_name && !target_dpo_username) {
+    return res.status(400).json({ error: 'Either organization_name or target_dpo_username is required' });
+  }
+  const validTypes = ['general', 'compliance', 'dpo', 'risk'];
+  const cType = validTypes.includes(comment_type) ? comment_type : 'general';
+  try {
+    const result = await pool.query(
+      `INSERT INTO assessor_comments
+         (assessor_id, organization_name, target_dpo_username, comment_text, comment_type, is_visible_to_dpo)
+       VALUES ($1,$2,$3,$4,$5,TRUE) RETURNING *`,
+      [req.user.id, organization_name || null, target_dpo_username || null, comment_text.trim(), cType]
+    );
+    auditLog(req.user.id, 'ASSESSOR_COMMENT_ADDED', 'assessor_comments',
+             { org: organization_name, dpo: target_dpo_username, type: cType }, req.ip, 'COMMENTS');
+    res.status(201).json({ message: 'Comment added', comment: result.rows[0] });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Get all comments — admins and DPO can view all; assessors only see their own
+app.get('/api/assessor-comments', authenticate, authorize('view_assessor_comments'), async (req, res) => {
+  const { org, dpo } = req.query;
+  try {
+    let q, params = [];
+    const isAssessor = req.user.role === 'potraz_assessor';
+
+    if (isAssessor) {
+      // POTRAZ can only see their own comments
+      q = `SELECT ac.*, u.username as assessor_username
+           FROM assessor_comments ac
+           JOIN users u ON ac.assessor_id=u.id
+           WHERE ac.assessor_id=$1`;
+      params = [req.user.id];
+      if (org) { q += ` AND LOWER(ac.organization_name)=LOWER($${params.length+1})`; params.push(org); }
+      if (dpo) { q += ` AND ac.target_dpo_username=$${params.length+1}`; params.push(dpo); }
+    } else {
+      // DPO and SysAdmin see all comments
+      q = `SELECT ac.*, u.username as assessor_username
+           FROM assessor_comments ac
+           JOIN users u ON ac.assessor_id=u.id
+           WHERE 1=1`;
+      if (org) { q += ` AND LOWER(ac.organization_name)=LOWER($${params.length+1})`; params.push(org); }
+      if (dpo) { q += ` AND ac.target_dpo_username=$${params.length+1}`; params.push(dpo); }
+    }
+    q += ` ORDER BY ac.created_at DESC`;
+    const result = await pool.query(q, params);
+    res.json({ comments: result.rows });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Get comments for a specific organisation
+app.get('/api/assessor-comments/org/:orgName', authenticate, authorize('view_assessor_comments'), async (req, res) => {
+  const orgName = decodeURIComponent(req.params.orgName);
+  try {
+    const result = await pool.query(
+      `SELECT ac.*, u.username as assessor_username
+       FROM assessor_comments ac
+       JOIN users u ON ac.assessor_id=u.id
+       WHERE LOWER(ac.organization_name)=LOWER($1) AND ac.is_visible_to_dpo=TRUE
+       ORDER BY ac.created_at DESC`,
+      [orgName]
+    );
+    res.json({ comments: result.rows, organization: orgName });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Get comments about a specific DPO
+app.get('/api/assessor-comments/dpo/:username', authenticate, authorize('view_assessor_comments'), async (req, res) => {
+  const dpoUsername = req.params.username;
+  try {
+    const result = await pool.query(
+      `SELECT ac.*, u.username as assessor_username
+       FROM assessor_comments ac
+       JOIN users u ON ac.assessor_id=u.id
+       WHERE ac.target_dpo_username=$1 AND ac.is_visible_to_dpo=TRUE
+       ORDER BY ac.created_at DESC`,
+      [dpoUsername]
+    );
+    res.json({ comments: result.rows, dpo: dpoUsername });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Delete a comment (only the assessor who wrote it, or SysAdmin)
+app.delete('/api/assessor-comments/:id', authenticate, async (req, res) => {
+  if (req.user.role !== 'potraz_assessor' && req.user.role !== 'system_administrator') {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+  try {
+    const check = await pool.query('SELECT assessor_id FROM assessor_comments WHERE id=$1', [req.params.id]);
+    if (!check.rows[0]) return res.status(404).json({ error: 'Comment not found' });
+    if (req.user.role === 'potraz_assessor' && check.rows[0].assessor_id !== req.user.id) {
+      return res.status(403).json({ error: 'You can only delete your own comments' });
+    }
+    await pool.query('DELETE FROM assessor_comments WHERE id=$1', [req.params.id]);
+    auditLog(req.user.id, 'ASSESSOR_COMMENT_DELETED', 'assessor_comments', { id: req.params.id }, req.ip, 'COMMENTS');
+    res.json({ message: 'Comment deleted' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ─── ADMIN ROUTES ─────────────────────────────────────
 
-// List all users
+// List all users — only System Administrator can manage users
 app.get('/api/admin/users', authenticate, async (req, res) => {
-  // Both DPO and System Admin can view users
-  if (!['data_protection_officer', 'system_administrator'].includes(req.user.role)) {
-    return res.status(403).json({ error: 'Access denied' });
+  if (req.user.role !== 'system_administrator') {
+    return res.status(403).json({ error: 'Access denied — user management requires System Administrator role' });
   }
   
   try {
@@ -1292,9 +1449,9 @@ app.get('/api/admin/users', authenticate, async (req, res) => {
        FROM users ORDER BY created_at DESC`
     );
     
-    // Categorize users by role
+    // Categorize users by new roles
     const categorized = {
-      data_controllers: result.rows.filter(u => u.role === 'data_controller'),
+      potraz_assessors: result.rows.filter(u => u.role === 'potraz_assessor'),
       dpos: result.rows.filter(u => u.role === 'data_protection_officer'),
       admins: result.rows.filter(u => u.role === 'system_administrator'),
     };
@@ -1309,10 +1466,10 @@ app.get('/api/admin/users', authenticate, async (req, res) => {
   }
 });
 
-// Get specific user details
+// Get specific user details — System Admin only
 app.get('/api/admin/users/:id', authenticate, async (req, res) => {
-  if (!['data_protection_officer', 'system_administrator'].includes(req.user.role)) {
-    return res.status(403).json({ error: 'Access denied' });
+  if (req.user.role !== 'system_administrator') {
+    return res.status(403).json({ error: 'Access denied — user management requires System Administrator role' });
   }
   
   try {
@@ -1333,10 +1490,10 @@ app.get('/api/admin/users/:id', authenticate, async (req, res) => {
   }
 });
 
-// Toggle user active/inactive and update user details
+// Toggle user active/inactive and update user details — System Admin only
 app.patch('/api/admin/users/:id', authenticate, async (req, res) => {
-  if (!['data_protection_officer', 'system_administrator'].includes(req.user.role)) {
-    return res.status(403).json({ error: 'Access denied' });
+  if (req.user.role !== 'system_administrator') {
+    return res.status(403).json({ error: 'Access denied — user management requires System Administrator role' });
   }
   
   const { is_active, email, organization, dpo_number, controller_license_number, controller_contact_number } = req.body;
@@ -1433,9 +1590,15 @@ app.post('/api/admin/users', authenticate, async (req, res) => {
     return res.status(400).json({ error: 'Password must be at least 6 characters' });
   }
   
-  // Validate DPO number if role is DPO or System Admin
+  // Validate: only valid roles allowed
+  const validRoles = ['data_protection_officer', 'system_administrator', 'potraz_assessor'];
+  if (!validRoles.includes(role)) {
+    return res.status(400).json({ error: `Invalid role. Must be one of: ${validRoles.join(', ')}` });
+  }
+  
+  // DPO number required for DPO and System Admin
   if (['data_protection_officer', 'system_administrator'].includes(role) && !dpo_number) {
-    return res.status(400).json({ error: 'DPO number required for this role' });
+    return res.status(400).json({ error: 'DPO number required for DPO and System Administrator roles' });
   }
   
   try {
@@ -1491,9 +1654,11 @@ app.get('/api/admin/audit-logs', authenticate, authorize('view_audit_logs'), asy
   const action = req.query.action;
   const module = req.query.module;
   const userId = req.query.userId;
+  const role = req.query.role;
+  const organization = req.query.organization;
   
   try {
-    let query = `SELECT al.*, u.username, u.role
+    let query = `SELECT al.*, u.username, u.role, u.organization
                  FROM audit_logs al 
                  LEFT JOIN users u ON al.user_id=u.id
                  WHERE 1=1`;
@@ -1512,12 +1677,45 @@ app.get('/api/admin/audit-logs', authenticate, authorize('view_audit_logs'), asy
       query += ` AND al.details->>'module' ILIKE $${paramCount++}`;
       params.push(`%${module}%`);
     }
+    if (role) {
+      query += ` AND u.role = $${paramCount++}`;
+      params.push(role);
+    }
+    if (organization) {
+      query += ` AND u.organization ILIKE $${paramCount++}`;
+      params.push(`%${organization}%`);
+    }
     
     query += ` ORDER BY al.created_at DESC LIMIT $${paramCount++} OFFSET $${paramCount++}`;
     params.push(limit, offset);
     
     const result = await pool.query(query, params);
-    const count = await pool.query('SELECT COUNT(*) FROM audit_logs');
+    
+    // Get count with same filters
+    let countQuery = `SELECT COUNT(*) FROM audit_logs al LEFT JOIN users u ON al.user_id=u.id WHERE 1=1`;
+    const countParams = [];
+    let countParamCount = 1;
+    if (action) {
+      countQuery += ` AND al.action ILIKE $${countParamCount++}`;
+      countParams.push(`%${action}%`);
+    }
+    if (userId) {
+      countQuery += ` AND al.user_id = $${countParamCount++}`;
+      countParams.push(userId);
+    }
+    if (module) {
+      countQuery += ` AND al.details->>'module' ILIKE $${countParamCount++}`;
+      countParams.push(`%${module}%`);
+    }
+    if (role) {
+      countQuery += ` AND u.role = $${countParamCount++}`;
+      countParams.push(role);
+    }
+    if (organization) {
+      countQuery += ` AND u.organization ILIKE $${countParamCount++}`;
+      countParams.push(`%${organization}%`);
+    }
+    const count = await pool.query(countQuery, countParams);
     
     res.json({ logs: result.rows, total: parseInt(count.rows[0].count) });
   } catch (e) {

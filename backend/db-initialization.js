@@ -631,6 +631,34 @@ async function ensureAdminUsers() {
     } else {
       console.log('    ✅ Data Protection Officer exists');
     }
+
+    // Check if POTRAZ Assessor exists
+    const assessorCheck = await pool.query(
+      "SELECT id FROM users WHERE role='potraz_assessor' LIMIT 1"
+    );
+
+    if (assessorCheck.rows.length === 0) {
+      console.log('    📝 Creating POTRAZ Assessor account...');
+      const assessorUsername = 'assessor';
+      const assessorPassword = generatePassword();
+      const assessorHash = await bcrypt.hash(assessorPassword, 12);
+
+      await pool.query(
+        `INSERT INTO users (username, password_hash, role, email, is_active, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+         ON CONFLICT (username) DO NOTHING`,
+        [assessorUsername, assessorHash, 'potraz_assessor', 'assessor@cdpa.local', true]
+      );
+
+      console.log(`    ✅ POTRAZ Assessor created (username: assessor, password: ${assessorPassword})`);
+
+      // Save credentials to file
+      const credentialsFile = path.join(__dirname, '..', 'admin_credentials.txt');
+      const credentials = `\n\nPOTRAZ Assessor\nUsername: assessor\nPassword: ${assessorPassword}\n`;
+      fs.appendFileSync(credentialsFile, credentials);
+    } else {
+      console.log('    ✅ POTRAZ Assessor exists');
+    }
     
     console.log('  ✅ Admin users verified');
   } catch (err) {

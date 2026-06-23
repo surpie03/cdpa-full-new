@@ -739,6 +739,43 @@ function renderCustomisedReport(data, modules) {
     `;
   }
 
+  // Assessor Comments Section
+  if (data.assessor_comments && data.assessor_comments.length > 0) {
+    html += `
+      <div class="crep-module-section">
+        <div class="crep-module-header" onclick="toggleCrepBody(this)" style="background: linear-gradient(90deg, rgba(155, 89, 182, 0.15), transparent); border-left: 4px solid #9b59b6; cursor:pointer;">
+          <span class="crep-module-title" style="color: #c39bd3;">🔍 POTRAZ Assessor Comments & Reviews (${data.assessor_comments.length})</span>
+          <span style="font-size:.7rem; color:var(--slate)">▼</span>
+        </div>
+        <div class="crep-module-body">
+          <div style="display:flex; flex-direction:column; gap:1rem;">
+            ${data.assessor_comments.map(c => {
+              const typeColors = {
+                general: '#7f8c8d',
+                compliance: '#3498db',
+                dpo: '#2ecc71',
+                risk: '#e74c3c'
+              };
+              const badgeColor = typeColors[c.comment_type] || '#7f8c8d';
+              return `
+                <div style="background:rgba(255,255,255,0.02); border:1px solid var(--bdr); border-radius:6px; padding:1rem; border-left: 3px solid ${badgeColor}">
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.5rem;">
+                    <div style="display:flex; align-items:center; gap:.5rem;">
+                      <span style="font-weight:700; color:var(--white); font-size:.9rem">${c.assessor_username}</span>
+                      <span style="background:${badgeColor}; color:white; font-size:.65rem; padding:.2rem .4rem; border-radius:3px; text-transform:uppercase; font-weight:700">${c.comment_type}</span>
+                    </div>
+                    <span style="font-size:.75rem; color:var(--slate)">${new Date(c.created_at).toLocaleDateString()}</span>
+                  </div>
+                  <p style="margin:0; font-size:.85rem; color:var(--white2); line-height:1.5; white-space:pre-wrap;">${c.comment_text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   // 4. Footer Disclaimer
   html += `
     <div style="margin-top:2rem; padding:1rem; border-top:1px solid var(--bdr); text-align:center; color:var(--slate); font-size:.7rem">
@@ -1321,4 +1358,198 @@ function downloadAllForms() {
   document.body.removeChild(a);
   
   toast2('All forms and activities downloaded ✓');
+}
+
+// ─── ASSESSOR COMMENTS MODULE (POTRAZ) ─────────────────
+
+let allCommentsCache = [];
+
+function loadCommentsSection() {
+  const container = document.getElementById('scomments');
+  if (!container) return;
+
+  // Set loading state
+  container.innerHTML = `
+    <div class="card" style="margin-bottom: 1.5rem;">
+      <div class="ch">
+        <h2 style="margin:0; color:var(--gold2); font-size:1.5rem">💬 Assessor & Compliance Comments</h2>
+        <p style="margin:0; font-size:.85rem; color:var(--slate)">Loading comments log...</p>
+      </div>
+    </div>
+  `;
+
+  // Fetch comments and orgs in parallel
+  Promise.all([
+    apiReq('GET', '/api/assessor-comments'),
+    apiReq('GET', '/api/reports/organizations')
+  ]).then(([commentsRes, orgsRes]) => {
+    const comments = commentsRes.comments || [];
+    allCommentsCache = comments;
+    const orgs = orgsRes.organizations || [];
+
+    const isAssessor = CU && (CU.role === 'potraz_assessor' || CU.role === 'system_administrator');
+    const leaveCommentForm = isAssessor ? `
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <div class="ch"><h3>✍️ Leave a New Comment</h3></div>
+        <div class="cb2" style="padding:1rem; display:grid; grid-template-columns: 1fr 1fr; gap:1.2rem;">
+          <div>
+            <label style="display:block; font-size:.75rem; color:var(--slate); font-weight:700; margin-bottom:.3rem;">Target Organisation</label>
+            <select id="comment-org" style="width:100%; background:rgba(0,0,0,0.25); color:white; border:1px solid var(--bdr); padding:.55rem; border-radius:4px; outline:none; font-family:Arial,sans-serif">
+               <option value="">Select Organisation...</option>
+               ${orgs.map(o => `<option value="${o.organization_name}">${o.organization_name}</option>`).join('')}
+            </select>
+          </div>
+          <div>
+            <label style="display:block; font-size:.75rem; color:var(--slate); font-weight:700; margin-bottom:.3rem;">Comment Type</label>
+            <select id="comment-type" style="width:100%; background:rgba(0,0,0,0.25); color:white; border:1px solid var(--bdr); padding:.55rem; border-radius:4px; outline:none; font-family:Arial,sans-serif">
+               <option value="general">General Review</option>
+               <option value="compliance">Compliance Assessment</option>
+               <option value="dpo">DPO Performance</option>
+               <option value="risk">Risk / DPIA</option>
+            </select>
+          </div>
+          <div style="grid-column: 1 / -1;">
+            <label style="display:block; font-size:.75rem; color:var(--slate); font-weight:700; margin-bottom:.3rem;">Comment Text</label>
+            <textarea id="comment-text" rows="4" style="width:100%; background:rgba(0,0,0,0.25); color:white; border:1px solid var(--bdr); padding:.55rem; border-radius:4px; outline:none; font-family:Arial,sans-serif" placeholder="Write your compliance review, grading or comments..."></textarea>
+          </div>
+          <div style="grid-column: 1 / -1; display:flex; justify-content:flex-end;">
+            <button class="btn-pri" onclick="submitAssessorComment()" style="width:auto; padding:.55rem 1.8rem;">Submit Comment</button>
+          </div>
+        </div>
+      </div>
+    ` : '';
+
+    container.innerHTML = `
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <div class="ch">
+          <h2 style="margin:0; color:var(--gold2); font-size:1.5rem">💬 Assessor & Compliance Comments</h2>
+          <p style="margin:0; font-size:.85rem; color:var(--slate)">View and manage comments left by POTRAZ Assessors regarding organizations and DPOs</p>
+        </div>
+      </div>
+
+      ${leaveCommentForm}
+
+      <div class="card">
+        <div class="ch" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:.5rem;">
+          <h3>📜 Comments Log</h3>
+          <div style="display:flex; gap:.5rem;">
+            <select id="filter-comment-org" onchange="filterCommentsList()" style="background:var(--bg2); color:white; border:1px solid var(--bdr); padding:.4rem; border-radius:4px; font-size:.8rem; outline:none; font-family:Arial,sans-serif">
+               <option value="">All Organisations</option>
+               ${orgs.map(o => `<option value="${o.organization_name}">${o.organization_name}</option>`).join('')}
+            </select>
+            <select id="filter-comment-type" onchange="filterCommentsList()" style="background:var(--bg2); color:white; border:1px solid var(--bdr); padding:.4rem; border-radius:4px; font-size:.8rem; outline:none; font-family:Arial,sans-serif">
+               <option value="">All Types</option>
+               <option value="general">General</option>
+               <option value="compliance">Compliance</option>
+               <option value="dpo">DPO Performance</option>
+               <option value="risk">Risk</option>
+            </select>
+          </div>
+        </div>
+        <div class="cb2" id="comments-list-container" style="padding:1rem;">
+           <!-- Comments rendered dynamically -->
+        </div>
+      </div>
+    `;
+
+    renderCommentsSublist(comments);
+  }).catch(e => {
+    container.innerHTML = `<div class="card" style="padding:2rem; color:var(--red2)">Error loading comments: ${e.message}</div>`;
+  });
+}
+
+function renderCommentsSublist(comments) {
+  const listCont = document.getElementById('comments-list-container');
+  if (!listCont) return;
+
+  if (comments.length === 0) {
+    listCont.innerHTML = `<div style="text-align:center; color:var(--slate); padding:2rem; font-size:.85rem">No comments found matching filter criteria.</div>`;
+    return;
+  }
+
+  const typeColors = {
+    general: '#7f8c8d',
+    compliance: '#3498db',
+    dpo: '#2ecc71',
+    risk: '#e74c3c'
+  };
+
+  listCont.innerHTML = `
+    <div style="display:flex; flex-direction:column; gap:1.2rem;">
+      ${comments.map(c => {
+        const badgeColor = typeColors[c.comment_type] || '#7f8c8d';
+        const canDelete = CU && (CU.role === 'system_administrator' || (CU.role === 'potraz_assessor' && c.assessor_id === CU.id));
+        const deleteBtn = canDelete ? `
+          <button class="btn-sec" onclick="deleteAssessorComment(${c.id})" style="width:auto; padding:.25rem .6rem; font-size:.7rem; background:rgba(231,76,60,0.15); color:var(--red2); border-color:rgba(231,76,60,0.3)">Delete</button>
+        ` : '';
+
+        return `
+          <div class="card" style="background:rgba(255,255,255,0.02); border:1px solid var(--bdr); border-radius:8px; padding:1.2rem; border-left:4px solid ${badgeColor}; display:flex; flex-direction:column; gap:.5rem;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:.5rem;">
+              <div>
+                <span style="font-weight:700; color:var(--white); font-size:.95rem;">${c.assessor_username}</span>
+                <span style="background:${badgeColor}; color:white; font-size:.65rem; padding:.2rem .4rem; border-radius:3px; text-transform:uppercase; font-weight:700; margin-left:.5rem;">${c.comment_type}</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:.5rem;">
+                <span style="font-size:.75rem; color:var(--slate);">${new Date(c.created_at).toLocaleString()}</span>
+                ${deleteBtn}
+              </div>
+            </div>
+            <div>
+              <span style="font-size:.75rem; color:var(--gold2); font-weight:700;">Organisation: ${c.organization_name || 'General'}</span>
+            </div>
+            <p style="margin:0; font-size:.85rem; color:var(--white2); line-height:1.5; white-space:pre-wrap; background:rgba(0,0,0,0.25); padding:.8rem; border-radius:4px; border:1px solid rgba(255,255,255,0.03);">${c.comment_text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function filterCommentsList() {
+  const org = document.getElementById('filter-comment-org').value;
+  const type = document.getElementById('filter-comment-type').value;
+
+  let filtered = allCommentsCache;
+  if (org) {
+    filtered = filtered.filter(c => c.organization_name === org);
+  }
+  if (type) {
+    filtered = filtered.filter(c => c.comment_type === type);
+  }
+
+  renderCommentsSublist(filtered);
+}
+
+function submitAssessorComment() {
+  const org = document.getElementById('comment-org').value;
+  const type = document.getElementById('comment-type').value;
+  const text = document.getElementById('comment-text').value.trim();
+
+  if (!org) { alert('Please select a target Organisation'); return; }
+  if (!text) { alert('Please enter comment text'); return; }
+
+  apiReq('POST', '/api/assessor-comments', {
+    organization_name: org,
+    comment_type: type,
+    comment_text: text
+  }).then(r => {
+    if (r.error) {
+      alert('Error: ' + r.error);
+    } else {
+      alert('Comment submitted successfully!');
+      loadCommentsSection();
+    }
+  }).catch(e => alert(e.message));
+}
+
+function deleteAssessorComment(id) {
+  if (!confirm('Are you sure you want to delete this comment?')) return;
+  apiReq('DELETE', '/api/assessor-comments/' + id).then(r => {
+    if (r.error) {
+      alert('Error deleting comment: ' + r.error);
+    } else {
+      loadCommentsSection();
+    }
+  }).catch(e => alert(e.message));
 }

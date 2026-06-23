@@ -11,7 +11,7 @@ const { pool, auditLog } = require('../server-utils');
  */
 const getOrganizations = async (req, res, authenticate) => {
   try {
-    const isDpoAdmin = ['data_protection_officer', 'system_administrator'].includes(req.user.role);
+    const isDpoAdmin = ['data_protection_officer', 'system_administrator', 'potraz_assessor'].includes(req.user.role);
     
     const q = `
       SELECT DISTINCT org_name
@@ -108,7 +108,7 @@ const getOrganizationReport = async (req, res) => {
   orgName = orgName.trim().replace(/\s+/g, ' ');
   
   try {
-    const isDpoAdmin = ['data_protection_officer', 'system_administrator'].includes(req.user.role);
+    const isDpoAdmin = ['data_protection_officer', 'system_administrator', 'potraz_assessor'].includes(req.user.role);
     console.log(`[Reports] Generating report for: "${orgName}" (Requested by: ${req.user.username}, Role: ${req.user.role})`);
     
     // Get organization license number and registration number first
@@ -368,11 +368,21 @@ const getOrganizationReport = async (req, res) => {
     const raciQuery = `
       SELECT r.*, u.username
       FROM raci_matrix r
-      LEFT JOIN users u ON r.user_id = u.id
+      LEFT JOIN users u ON r.user_id=u.id
       WHERE TRIM(LOWER(r.organization_name)) = TRIM(LOWER($1::text))
       ORDER BY r.process_name, r.role
     `;
     const raciData = await pool.query(raciQuery, [orgName]);
+
+    // 15. Assessor Comments
+    const commentsResult = await pool.query(
+      `SELECT ac.*, u.username as assessor_username
+       FROM assessor_comments ac
+       JOIN users u ON ac.assessor_id=u.id
+       WHERE LOWER(ac.organization_name) = LOWER($1) AND ac.is_visible_to_dpo = TRUE
+       ORDER BY ac.created_at DESC`,
+      [orgName]
+    );
     
     console.log(`[Reports] Counts for "${orgName}": CA:${assessments.rows.length}, Gaps:${gaps.rows.length}, ROPA:${ropas.length}, DPIA:${dpias.rows.length}, Dept:${deptAssessments.rows.length}`);
 
@@ -397,6 +407,7 @@ const getOrganizationReport = async (req, res) => {
       organization_license_number: organization_license_number,
       organization_registration_number: organization_registration_number,
       report_generated_at: new Date().toISOString(),
+      assessor_comments: commentsResult.rows,
       
       controller_details: controllerDetails.rows[0] || {
         controller_name: orgName,

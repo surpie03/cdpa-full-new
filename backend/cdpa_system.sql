@@ -19,13 +19,30 @@ DROP TABLE IF EXISTS compliance_assessments CASCADE;
 DROP TABLE IF EXISTS controller_validations CASCADE;
 DROP TABLE IF EXISTS security_gap_analysis CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
+DROP TABLE IF EXISTS organizations CASCADE;
+
+-- ORGANIZATIONS
+CREATE TABLE organizations (
+    id                  SERIAL PRIMARY KEY,
+    name                VARCHAR(255) UNIQUE NOT NULL,
+    license_number      VARCHAR(100),
+    registration_number VARCHAR(100),
+    license_locked      BOOLEAN DEFAULT FALSE,
+    license_created_by  INTEGER,
+    license_locked_at   TIMESTAMP,
+    license_edit_allowed BOOLEAN DEFAULT TRUE,
+    dpo_name            VARCHAR(255),
+    dpo_contact         VARCHAR(100),
+    created_at          TIMESTAMP DEFAULT NOW(),
+    updated_at          TIMESTAMP DEFAULT NOW()
+);
 
 -- USERS
 CREATE TABLE users (
     id              SERIAL PRIMARY KEY,
     username        VARCHAR(50) UNIQUE NOT NULL,
     password_hash   VARCHAR(255) NOT NULL,
-    role            VARCHAR(50) NOT NULL CHECK (role IN ('data_controller','data_protection_officer','system_administrator')),
+    role            VARCHAR(50) NOT NULL CHECK (role IN ('potraz_assessor','data_protection_officer','system_administrator')),
     organization    VARCHAR(255),
     dpo_number      VARCHAR(50),
     email           VARCHAR(255),
@@ -442,6 +459,25 @@ CREATE INDEX idx_raci_user ON raci_matrix(user_id);
 CREATE INDEX idx_kpi_user ON kpi_tracking(user_id);
 CREATE INDEX idx_cia_user ON cia_data(user_id);
 CREATE INDEX idx_tech_recs_user ON tech_recommendations(user_id);
+
+-- ASSESSOR COMMENTS (for POTRAZ Assessors to comment on organisations/DPOs)
+CREATE TABLE assessor_comments (
+    id                  SERIAL PRIMARY KEY,
+    assessor_id         INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    organization_name   VARCHAR(255),
+    target_dpo_username VARCHAR(50),
+    comment_text        TEXT NOT NULL,
+    comment_type        VARCHAR(20) DEFAULT 'general' CHECK (comment_type IN ('general','compliance','dpo','risk')),
+    is_visible_to_dpo   BOOLEAN DEFAULT TRUE,
+    created_at          TIMESTAMP DEFAULT NOW(),
+    updated_at          TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_assessor_comments_org ON assessor_comments(organization_name);
+CREATE INDEX idx_assessor_comments_assessor ON assessor_comments(assessor_id);
+CREATE INDEX idx_assessor_comments_dpo ON assessor_comments(target_dpo_username);
+
+ALTER TABLE organizations ADD CONSTRAINT fk_organizations_license_created_by FOREIGN KEY (license_created_by) REFERENCES users(id) ON DELETE SET NULL;
 
 
 SELECT table_name FROM information_schema.tables 
