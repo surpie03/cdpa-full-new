@@ -81,12 +81,37 @@ const upload = multer({
 
 // ─── ROLE PERMISSIONS (Least Privilege) ──────────────
 // ══════════════════════════════════════════════════════════
-// 3 ROLES:
+// 4 ROLES:
 //   1. system_administrator  — Full access + user management
 //   2. data_protection_officer — Data capture across all modules + reports
 //   3. potraz_assessor        — View-only + leave comments on orgs/DPOs
+//   4. data_controller        — Responsible for DPIA and ROPA, can do self assessment
 // ══════════════════════════════════════════════════════════
 const PERMISSIONS = {
+  // ── DATA CONTROLLER ─────────────────────────────────
+  // Responsible for DPIA and ROPA, can conduct self assessment
+  data_controller: [
+    'create_assessment',        // Can create self assessments
+    'submit_checklist',         // Can submit self assessment responses
+    'view_all_assessments',     // Can view all assessments
+    'view_all_gap',             // Can view all gap analyses
+    'view_tech_recommendations',// Can view tech recommendations
+    'view_all_ropa',            // Can view ROPA records
+    'create_ropa',              // Can create ROPA
+    'view_all_dpia',            // Can view DPIA assessments
+    'create_dpia',              // Can create DPIA
+    // Reports
+    'view_all_reports',         // Can view all org reports
+    'generate_org_reports',     // Can generate/download org reports
+    'export_reports',           // Can export reports
+    // Comments - can view assessor comments
+    'view_assessor_comments',   // Can view POTRAZ comments
+    // NO Permissions:
+    // ✗ NO user management
+    // ✗ NO audit logs access
+    // ✗ NO admin dashboards
+  ],
+
   // ── POTRAZ ASSESSOR ─────────────────────────────────
   // Read-only access to all reports + ability to leave comments
   potraz_assessor: [
@@ -167,6 +192,7 @@ const PERMISSIONS = {
     'manage_system',            // Can configure system settings
     'view_audit_logs',          // Can view complete audit trail
     'export_audit_logs',        // Can export audit logs
+    'view_system_stats',        // Can view system statistics and health
     'manage_dpo',               // Can manage DPO accounts
     'manage_system_admin',      // Can manage admin accounts
     'manage_potraz',            // Can manage POTRAZ assessor accounts
@@ -230,7 +256,7 @@ const auditLog = async (userId, action, resource, details = {}, ip = null, modul
 const QUESTION_WEIGHTS = {
   q1:1.5, q2:1.5, q3:1.0, q4:1.0, q5:1.5,
   q6:1.0, q7:1.5, q8:1.5, q9:1.0, q10:1.0,
-  q11:1.0, q12:1.5, q13:1.0
+  q11:1.0, q12:1.5, q13:1.0, q14:1.0
 };
 
 const getLicensingTier = (n) => {
@@ -254,9 +280,14 @@ const calcWeightedScore = (answers) => {
 const calcComplianceScore = (responses) => {
   let total = 0, achieved = 0;
   responses.forEach(r => {
-    total    += parseFloat(r.weight) || 1;
-    if (r.response === 'yes')     achieved += parseFloat(r.weight) || 1;
-    if (r.response === 'partial') achieved += (parseFloat(r.weight) || 1) * 0.5;
+    const weight = parseFloat(r.weight) || 1;
+    total += weight * 1; // Max points per item is 1
+    if (r.response === 'yes') {
+      achieved += weight * 1;
+    } else if (r.response === 'partial') {
+      achieved += weight * 0.5;
+    }
+    // No = 0, so nothing to add
   });
   return total > 0 ? parseFloat(((achieved / total) * 100).toFixed(2)) : 0;
 };
@@ -355,7 +386,13 @@ app.post('/api/validation/submit', authenticate, authorize('validate_controller'
   }
   const score     = calcWeightedScore(answers);
   const isValid   = score >= 60;
-  const licensing = getLicensingTier(num_data_subjects);
+  let licensing = getLicensingTier(num_data_subjects);
+  
+  // Check if cameras are facing outside (q14), override to tier 4 if yes
+  if (answers.q14 === 'yes') {
+    licensing = { tier: 4, fee: 2500, range: 'Tier 4 (Cameras facing outside)' };
+  }
+  
   try {
     const result = await pool.query(
       `INSERT INTO controller_validations
@@ -369,7 +406,7 @@ app.post('/api/validation/submit', authenticate, authorize('validate_controller'
        controller_license_number || null, controller_contact_number || null]
     );
     auditLog(req.user.id, 'VALIDATION_SUBMITTED', 'controller_validations',
-             { isValid, score, attempt: attempt_number }, req.ip);
+             { isValid, score, attempt: attempt_number, licensing: licensing }, req.ip);
     res.status(201).json({
       validation: result.rows[0],
       weighted_score: score,
@@ -400,14 +437,14 @@ app.get('/api/validation', authenticate, authorize('validate_controller'), async
 
 // Create assessment
 app.post('/api/assessment', authenticate, authorize('create_assessment'), async (req, res) => {
-  const { organization_name, attempt_number = 1 } = req.body;
+  const { organization_name, attempt_number = 1, assessment_type = 'self_assessment' } = req.body;
   if (!organization_name) return res.status(400).json({ error: 'organization_name required' });
   try {
     const result = await pool.query(
-      'INSERT INTO compliance_assessments (user_id, organization_name, status, attempt_number) VALUES ($1,$2,\'draft\',$3) RETURNING *',
-      [req.user.id, organization_name.trim(), parseInt(attempt_number) || 1]
+      'INSERT INTO compliance_assessments (user_id, organization_name, status, attempt_number, assessment_type) VALUES ($1,$2,\'draft\',$3,$4) RETURNING *',
+      [req.user.id, organization_name.trim(), parseInt(attempt_number) || 1, assessment_type]
     );
-    auditLog(req.user.id, 'ASSESSMENT_CREATED', 'compliance_assessments', { id: result.rows[0].id, attempt: attempt_number }, req.ip);
+    auditLog(req.user.id, 'ASSESSMENT_CREATED', 'compliance_assessments', { id: result.rows[0].id, attempt: attempt_number, assessment_type }, req.ip);
     res.status(201).json({ assessment: result.rows[0] });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -481,7 +518,7 @@ app.get('/api/assessment', authenticate, async (req, res) => {
   try {
     let q, params;
     
-    const allowed = ['data_protection_officer', 'system_administrator', 'potraz_assessor'];
+    const allowed = ['data_protection_officer', 'system_administrator', 'potraz_assessor', 'data_controller'];
     if (allowed.includes(req.user.role)) {
       // DPO, SysAdmin & POTRAZ Assessor: Can view ALL assessments
       q = `SELECT ca.*, u.username 
@@ -496,6 +533,103 @@ app.get('/api/assessment', authenticate, async (req, res) => {
     const result = await pool.query(q, params);
     res.json({ assessments: result.rows });
   } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Get organization by name
+app.get('/api/organizations/:name', authenticate, async (req, res) => {
+  try {
+    const orgName = req.params.name.trim();
+    const result = await pool.query(
+      'SELECT * FROM organizations WHERE LOWER(name)=LOWER($1)',
+      [orgName]
+    );
+    if (result.rows.length === 0) {
+      return res.json({ organization: null });
+    }
+    res.json({ organization: result.rows[0] });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Save or update organization details
+app.put('/api/organizations', authenticate, async (req, res) => {
+  try {
+    const {
+      name,
+      license_number,
+      registration_number,
+      dpo_name,
+      dpo_contact,
+      controller_name,
+      controller_address,
+      controller_contact
+    } = req.body;
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'Organization name is required' });
+    }
+    const trimmedName = name.trim();
+
+    // Check if org exists
+    const check = await pool.query(
+      'SELECT id FROM organizations WHERE LOWER(name)=LOWER($1)',
+      [trimmedName]
+    );
+
+    let organization;
+    if (check.rows.length === 0) {
+      // Create new organization
+      const result = await pool.query(
+        `INSERT INTO organizations (
+          name, license_number, registration_number, dpo_name, dpo_contact,
+          controller_name, controller_address, controller_contact
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+        RETURNING *`,
+        [
+          trimmedName,
+          license_number || null,
+          registration_number || null,
+          dpo_name || null,
+          dpo_contact || null,
+          controller_name || null,
+          controller_address || null,
+          controller_contact || null
+        ]
+      );
+      organization = result.rows[0];
+      auditLog(req.user.id, 'ORGANIZATION_CREATED', 'organizations', { id: organization.id }, req.ip);
+    } else {
+      // Update existing organization
+      const result = await pool.query(
+        `UPDATE organizations
+         SET license_number=$2, registration_number=$3,
+             dpo_name=$4, dpo_contact=$5,
+             controller_name=$6, controller_address=$7,
+             controller_contact=$8, updated_at=NOW()
+         WHERE id=$1
+         RETURNING *`,
+        [
+          check.rows[0].id,
+          license_number || null,
+          registration_number || null,
+          dpo_name || null,
+          dpo_contact || null,
+          controller_name || null,
+          controller_address || null,
+          controller_contact || null
+        ]
+      );
+      organization = result.rows[0];
+      auditLog(req.user.id, 'ORGANIZATION_UPDATED', 'organizations', { id: organization.id }, req.ip);
+    }
+
+    res.json({ organization });
+  } catch (e) {
+    console.error(e);
     res.status(500).json({ error: e.message });
   }
 });
@@ -2135,6 +2269,199 @@ app.get('/api/cia-data/:org_name', authenticate, async (req, res) => {
       [req.user.id, org_name]
     );
     res.json({ cia: result.rows });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── ADMINISTRATION ENDPOINTS ─────────────────────────
+
+// Get all users
+app.get('/api/admin/users', authenticate, authorize('manage_users'), async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT id, username, email, organization, dpo_number, role, is_active, created_at, updated_at FROM users ORDER BY created_at DESC'
+    );
+    res.json({ users: result.rows });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Create a new user
+app.post('/api/admin/users', authenticate, authorize('manage_users'), async (req, res) => {
+  const { username, password, role, email, organization, dpo_number, controller_license_number, controller_contact_number } = req.body;
+  if (!username || !password || !role) {
+    return res.status(400).json({ error: 'Username, password and role are required' });
+  }
+  try {
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const result = await pool.query(
+      `INSERT INTO users (username, password_hash, role, email, organization, dpo_number, controller_license_number, controller_contact_number, is_active)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true) RETURNING id, username, email, role, organization, dpo_number, is_active`,
+      [username, hashedPassword, role, email || null, organization || null, dpo_number || null, controller_license_number || null, controller_contact_number || null]
+    );
+    auditLog(req.user.id, 'USER_CREATED', 'users', { user_id: result.rows[0].id, username: result.rows[0].username }, req.ip);
+    res.status(201).json({ user: result.rows[0] });
+  } catch (e) {
+    if (e.message.includes('duplicate key')) {
+      return res.status(400).json({ error: 'Username already exists' });
+    }
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Update a user
+app.patch('/api/admin/users/:id', authenticate, authorize('manage_users'), async (req, res) => {
+  const userId = parseInt(req.params.id);
+  const { email, organization, dpo_number, role, is_active } = req.body;
+  try {
+    const fields = [];
+    const values = [];
+    let index = 1;
+    if (email !== undefined) { fields.push('email = $' + index++); values.push(email); }
+    if (organization !== undefined) { fields.push('organization = $' + index++); values.push(organization); }
+    if (dpo_number !== undefined) { fields.push('dpo_number = $' + index++); values.push(dpo_number); }
+    if (role !== undefined) { fields.push('role = $' + index++); values.push(role); }
+    if (is_active !== undefined) { fields.push('is_active = $' + index++); values.push(is_active); }
+    fields.push('updated_at = NOW()');
+    
+    if (fields.length === 1) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+    
+    values.push(userId);
+    const result = await pool.query(
+      `UPDATE users SET ${fields.join(', ')} WHERE id = $${index} RETURNING id, username, email, role, organization, dpo_number, is_active`,
+      values
+    );
+    if (!result.rows[0]) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    auditLog(req.user.id, 'USER_UPDATED', 'users', { user_id: userId }, req.ip);
+    res.json({ user: result.rows[0] });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Reset user password
+app.patch('/api/admin/users/:id/reset-password', authenticate, authorize('manage_users'), async (req, res) => {
+  const userId = parseInt(req.params.id);
+  const { new_password } = req.body;
+  if (!new_password) {
+    return res.status(400).json({ error: 'New password is required' });
+  }
+  try {
+    const hashedPassword = await bcrypt.hash(new_password, 10);
+    const result = await pool.query(
+      'UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2 RETURNING id, username',
+      [hashedPassword, userId]
+    );
+    if (!result.rows[0]) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    auditLog(req.user.id, 'PASSWORD_RESET', 'users', { user_id: userId }, req.ip);
+    res.json({ message: 'Password reset successfully' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Delete a user
+app.delete('/api/admin/users/:id', authenticate, authorize('manage_users'), async (req, res) => {
+  const userId = parseInt(req.params.id);
+  try {
+    const result = await pool.query('DELETE FROM users WHERE id = $1 RETURNING username', [userId]);
+    if (!result.rows[0]) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    auditLog(req.user.id, 'USER_DELETED', 'users', { user_id: userId, username: result.rows[0].username }, req.ip);
+    res.json({ message: 'User deleted successfully' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Lock all users (except current user)
+app.patch('/api/admin/users/lock-all', authenticate, authorize('manage_users'), async (req, res) => {
+  try {
+    await pool.query('UPDATE users SET is_active = false, updated_at = NOW() WHERE id != $1', [req.user.id]);
+    auditLog(req.user.id, 'ALL_USERS_LOCKED', 'users', null, req.ip);
+    res.json({ message: 'All users locked successfully' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Unlock all users
+app.patch('/api/admin/users/unlock-all', authenticate, authorize('manage_users'), async (req, res) => {
+  try {
+    await pool.query('UPDATE users SET is_active = true, updated_at = NOW()');
+    auditLog(req.user.id, 'ALL_USERS_UNLOCKED', 'users', null, req.ip);
+    res.json({ message: 'All users unlocked successfully' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Get audit logs
+app.get('/api/admin/audit-logs', authenticate, authorize('view_audit_logs'), async (req, res) => {
+  try {
+    const { action, module, role, organization, limit = 200 } = req.query;
+    let query = `
+      SELECT al.*, u.username, u.role 
+      FROM audit_logs al 
+      LEFT JOIN users u ON al.user_id = u.id 
+      WHERE 1=1
+    `;
+    const params = [];
+    let index = 1;
+    
+    if (action) { query += ` AND al.action ILIKE $${index++}`; params.push('%' + action + '%'); }
+    if (module) { query += ` AND al.resource ILIKE $${index++}`; params.push('%' + module + '%'); }
+    if (role) { query += ` AND u.role = $${index++}`; params.push(role); }
+    if (organization) { query += ` AND (al.details->>'organization' ILIKE $${index++} OR u.organization ILIKE $${index++})`; params.push('%' + organization + '%', '%' + organization + '%'); }
+    
+    query += ` ORDER BY al.created_at DESC LIMIT $${index++}`;
+    params.push(parseInt(limit));
+    
+    const result = await pool.query(query, params);
+    res.json({ logs: result.rows, total: result.rows.length });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Get system stats
+app.get('/api/admin/stats', authenticate, authorize('view_system_stats'), async (req, res) => {
+  try {
+    const usersResult = await pool.query('SELECT COUNT(*) as total, COUNT(CASE WHEN is_active THEN 1 END) as active FROM users');
+    const dpoResult = await pool.query("SELECT COUNT(*) as count FROM users WHERE role = 'data_protection_officer'");
+    const assessorResult = await pool.query("SELECT COUNT(*) as count FROM users WHERE role = 'potraz_assessor'");
+    const assessmentsResult = await pool.query('SELECT COUNT(*) as total, COUNT(CASE WHEN status = \'submitted\' THEN 1 END) as submitted, AVG(overall_score) as avg_score FROM compliance_assessments');
+    const dpiasResult = await pool.query('SELECT COUNT(*) as total FROM dpia_assessments');
+    const ropasResult = await pool.query('SELECT COUNT(*) as total FROM ropa_records');
+    const gapsResult = await pool.query("SELECT COUNT(*) as total, COUNT(CASE WHEN status = 'open' THEN 1 END) as open FROM gap_analysis");
+    const remediationsResult = await pool.query("SELECT COUNT(*) as total FROM remediation_tasks WHERE status = 'open'");
+    const assetsResult = await pool.query('SELECT COUNT(*) as total FROM cia_data');
+    const deptAssessmentsResult = await pool.query('SELECT COUNT(*) as total FROM department_assessments');
+    
+    res.json({
+      total_users: parseInt(usersResult.rows[0].total),
+      active_users: parseInt(usersResult.rows[0].active),
+      dpo_count: parseInt(dpoResult.rows[0].count),
+      assessor_count: parseInt(assessorResult.rows[0].count),
+      total_assessments: parseInt(assessmentsResult.rows[0].total),
+      submitted_assessments: parseInt(assessmentsResult.rows[0].submitted),
+      avg_compliance_score: assessmentsResult.rows[0].avg_score ? parseFloat(assessmentsResult.rows[0].avg_score).toFixed(1) + '%' : 'N/A',
+      total_dpias: parseInt(dpiasResult.rows[0].total),
+      total_ropas: parseInt(ropasResult.rows[0].total),
+      open_gaps: parseInt(gapsResult.rows[0].open),
+      open_remediations: parseInt(remediationsResult.rows[0].total),
+      total_assets: parseInt(assetsResult.rows[0].total),
+      dept_assessments: parseInt(deptAssessmentsResult.rows[0].total)
+    });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

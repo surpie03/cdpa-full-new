@@ -42,7 +42,7 @@ CREATE TABLE users (
     id              SERIAL PRIMARY KEY,
     username        VARCHAR(50) UNIQUE NOT NULL,
     password_hash   VARCHAR(255) NOT NULL,
-    role            VARCHAR(50) NOT NULL CHECK (role IN ('potraz_assessor','data_protection_officer','system_administrator')),
+    role            VARCHAR(50) NOT NULL CHECK (role IN ('potraz_assessor','data_protection_officer','system_administrator','data_controller')),
     organization    VARCHAR(255),
     dpo_number      VARCHAR(50),
     email           VARCHAR(255),

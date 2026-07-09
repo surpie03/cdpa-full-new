@@ -481,6 +481,97 @@ async function addComplianceAttemptTracking() {
 }
 
 /**
+ * Add assessment_type field to compliance_assessments for assessment type
+ */
+async function addAssessmentTypeField() {
+  console.log('  ➜ Checking assessment type field...');
+  
+  try {
+    const check = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name='compliance_assessments' AND column_name='assessment_type'
+    `);
+
+    if (!check.rows[0]) {
+      await pool.query(`
+        ALTER TABLE compliance_assessments 
+        ADD COLUMN assessment_type VARCHAR(50) DEFAULT 'self_assessment'
+      `);
+      console.log('    ✅ Added assessment_type to compliance_assessments');
+    }
+    
+    console.log('  ✅ Assessment type field verified');
+  } catch (err) {
+    console.error('  ⚠️  Assessment type field error:', err.message);
+  }
+}
+
+async function addControllerDetailsToOrganizations() {
+  console.log('  ➜ Checking controller details in organizations...');
+  
+  try {
+    const fields = [
+      { name: 'controller_name', type: 'VARCHAR(255)' },
+      { name: 'controller_address', type: 'TEXT' },
+      { name: 'controller_contact', type: 'VARCHAR(100)' }
+    ];
+
+    for (const field of fields) {
+      const check = await pool.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name='organizations' AND column_name='${field.name}'
+      `);
+      if (!check.rows[0]) {
+        await pool.query(`
+          ALTER TABLE organizations ADD COLUMN ${field.name} ${field.type}
+        `);
+        console.log(`    ✅ Added ${field.name} to organizations`);
+      }
+    }
+    
+    console.log('  ✅ Controller details in organizations verified');
+  } catch (err) {
+    console.error('  ⚠️  Controller details in organizations error:', err.message);
+  }
+}
+
+async function updateUserRoleCheckConstraint() {
+  console.log('  ➜ Checking user role check constraint...');
+  
+  try {
+    // Check if constraint exists and is the old one
+    const checkResult = await pool.query(`
+      SELECT conname
+      FROM pg_constraint
+      WHERE conrelid = 'users'::regclass AND contype = 'c';
+    `);
+
+    for (const row of checkResult.rows) {
+      // Drop the old constraint
+      await pool.query(`ALTER TABLE users DROP CONSTRAINT ${row.conname}`);
+      console.log(`    ✅ Dropped old role constraint: ${row.conname}`);
+    }
+
+    // Add the new constraint with data_controller included
+    await pool.query(`
+      ALTER TABLE users 
+      ADD CONSTRAINT users_role_check 
+      CHECK (role IN ('potraz_assessor','data_protection_officer','system_administrator','data_controller'));
+    `);
+    console.log('  ✅ Updated user role check constraint');
+  } catch (err) {
+    // Ignore error if constraint is already correct
+    if (err.message && err.message.includes('already exists')) {
+      console.log('  ✅ User role check constraint already correct');
+    } else {
+      console.error('  ⚠️  Update user role check error:', err.message);
+    }
+  }
+}
+
+/**
  * Normalize organization names (trim, remove extra spaces)
  */
 async function normalizeOrganizationNames() {
@@ -579,7 +670,8 @@ async function ensureAdminUsers() {
     const credentials = [
       { username: 'sysadmin', password: 'Admin123!', role: 'system_administrator', email: 'admin@cdpa.local' },
       { username: 'dpo', password: 'Dpo123!', role: 'data_protection_officer', email: 'dpo@cdpa.local' },
-      { username: 'assessor', password: 'Assess123!', role: 'potraz_assessor', email: 'assessor@cdpa.local' }
+      { username: 'assessor', password: 'Assess123!', role: 'potraz_assessor', email: 'assessor@cdpa.local' },
+      { username: 'controller', password: 'Controller123!', role: 'data_controller', email: 'controller@cdpa.local' }
     ];
 
     for (const cred of credentials) {
@@ -651,6 +743,9 @@ async function initializeDatabase() {
     await addControllerDetailsToValidations();
     await addDPOFields();
     await addComplianceAttemptTracking();
+    await addAssessmentTypeField();
+    await addControllerDetailsToOrganizations();
+    await updateUserRoleCheckConstraint();
     
     // PHASE 3: Ensure admin users
     await ensureAdminUsers();

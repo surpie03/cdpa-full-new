@@ -5,6 +5,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CDPA Compliance System</title>
+  <!-- Font Awesome for Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <style>
     * {
       box-sizing: border-box;
@@ -250,58 +252,59 @@
     /* APP LAYOUT OVERHAUL */
     #app {
       display: flex;
-      flex-direction: column;
+      flex-direction: row;
       height: 100vh;
       overflow: hidden;
     }
 
     #top-header {
-      background: #2c7199;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 10px;
-      height: 36px;
-      border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+      display: none;
     }
 
     #snav {
+      width: 220px;
+      background: #2c7199;
       display: flex;
+      flex-direction: column;
       gap: 0;
-      height: 100%;
-      overflow-x: auto;
+      overflow-y: auto;
       padding: 0;
+      border-right: 1px solid rgba(0, 0, 0, 0.1);
+      flex-shrink: 0;
     }
 
     .nav-group {
       display: flex;
-      align-items: center;
-      border-right: 2px solid rgba(255,255,255,.1);
+      flex-direction: column;
       padding: 0;
+      border-bottom: 2px solid rgba(255,255,255,.1);
     }
 
     .nav-group-label {
       font-size: 9px;
       font-weight: 700;
       color: var(--gold2);
-      padding: 0 6px;
+      padding: 6px 10px;
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      align-self: center;
       background: rgba(0,0,0,.3);
     }
 
     .ni {
       display: flex;
       align-items: center;
+      gap: 12px;
       color: #fff;
-      font-size: 11px;
-      padding: 0 8px;
+      font-size: 14px;
+      padding: 14px 20px;
       cursor: pointer;
       white-space: nowrap;
-      border-right: 1px solid rgba(255, 255, 255, 0.1);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
       transition: background 0.2s;
-      height: 100%;
+    }
+    .ni i {
+      width: 20px;
+      text-align: center;
     }
 
     .ni:hover {
@@ -315,7 +318,68 @@
 
     .ni .ic {
       display: none;
-      /* Hide icons in top nav as per original image */
+    }
+
+    /* Dashboard Hero Styles */
+    .dashboard-hero {
+      background: linear-gradient(135deg, #2c7199 0%, #1e5a7d 100%);
+      padding: 2rem;
+      border-radius: 12px;
+      margin-bottom: 1.5rem;
+      color: white;
+    }
+    .dashboard-hero h1 {
+      margin: 0;
+      font-size: 1.8rem;
+    }
+    .dashboard-hero p {
+      margin: 0.5rem 0 0 0;
+      font-size: 0.95rem;
+      opacity: 0.9;
+    }
+    .dashboard-actions {
+      margin-top: 1.2rem;
+      display: flex;
+      gap: 0.8rem;
+      flex-wrap: wrap;
+    }
+
+    /* Stats Cards Styles */
+    .dpostats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.2rem;
+      margin-bottom: 1.5rem;
+    }
+    .stat-card {
+      background: white;
+      border: 1px solid #e0e7ed;
+      border-radius: 10px;
+      padding: 1.5rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .stat-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(0,0,0,0.1);
+    }
+    .stat-icon {
+      font-size: 2rem;
+      margin-bottom: 0.5rem;
+      color: #2c7199;
+    }
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 900;
+      color: #1e5a7d;
+      margin: 0;
+    }
+    .stat-label {
+      font-size: 0.85rem;
+      color: #6b7b8c;
+      margin: 0.3rem 0 0 0;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
     }
 
     .header-ctrls {
@@ -2217,41 +2281,44 @@
 
   <!-- APP -->
   <div id="app" class="hidden">
-    <!-- Blue Header Nav -->
-    <header id="top-header">
-      <nav id="snav"></nav>
-      <div class="header-ctrls">
+    <!-- Vertical Sidebar -->
+    <nav id="snav">
+      <!-- User Info -->
+      <div style="padding:15px;background:rgba(0,0,0,.3);border-bottom:1px solid rgba(255,255,255,.1)">
+        <div id="uname_full" style="font-weight:700;color:var(--gold2);font-size:14px">...</div>
+        <div id="user-role" style="font-size:11px;color:#a0c8d8;margin-top:3px">Role</div>
+      </div>
+      <!-- Navigation Links will be injected here -->
+    </nav>
+
+    <!-- Main Content Area -->
+    <div style="flex:1;display:flex;flex-direction:column;height:100vh;overflow:hidden">
+      <!-- Top Controls -->
+      <div style="background:#2c7199;display:flex;align-items:center;justify-content:flex-end;padding:5px 15px;border-bottom:1px solid rgba(0,0,0,.1);gap:10px">
         <button class="hbtn" onclick="buildSGA()">&#9881;</button>
         <button class="hbtn" style="background:#e74c3c" onclick="doLogout()">&#10006;</button>
       </div>
-      <!-- User Context Display -->
-      <div style="display:flex;align-items:center;gap:1rem;padding:.5rem 1.2rem;background:rgba(0,0,0,.3);border-top:1px solid rgba(255,255,255,.1);font-size:.85rem;color:var(--slate2)">
-        <span id="uname_full" style="font-weight:600;color:var(--gold2)">...</span>
-        <span style="color:var(--slate)">&#183;</span>
-        <span style="font-size:.8rem" id="user-role">Role</span>
+
+      <!-- Active Tab Bar -->
+      <div id="tab-bar">
+        <div class="tab" id="active-tab">Home</div>
       </div>
-    </header>
 
-    <!-- Active Tab Bar -->
-    <div id="tab-bar">
-      <div class="tab" id="active-tab">Home</div>
-    </div>
-
-    <!-- Workflow Progress Bar -->
-    <div id="workflow-progress-container" style="background:rgba(0,0,0,.5);border-bottom:1px solid rgba(255,255,255,.1);padding:0">
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:.5rem 1.2rem;font-size:.8rem;color:var(--slate2)">
-        <div style="flex:1;display:flex;align-items:center;gap:.5rem">
-          <span style="font-weight:700">Workflow Progress:</span>
-          <span id="workflow-step-count" style="color:var(--gold2);font-weight:700">1 / 12</span>
+      <!-- Workflow Progress Bar -->
+      <div id="workflow-progress-container" style="background:rgba(0,0,0,.5);border-bottom:1px solid rgba(255,255,255,.1);padding:0">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:.5rem 1.2rem;font-size:.8rem;color:var(--slate2)">
+          <div style="flex:1;display:flex;align-items:center;gap:.5rem">
+            <span style="font-weight:700">Workflow Progress:</span>
+            <span id="workflow-step-count" style="color:var(--gold2);font-weight:700">1 / 12</span>
+          </div>
+          <div id="workflow-nav-buttons" style="display:flex;gap:.5rem"></div>
         </div>
-        <div id="workflow-nav-buttons" style="display:flex;gap:.5rem"></div>
+        <div style="height:3px;background:rgba(255,255,255,.1);overflow:hidden">
+          <div id="workflow-progress-bar" style="height:100%;background:linear-gradient(90deg,#3498db 0%,#2ecc71 100%);width:8.33%;transition:width .3s ease"></div>
+        </div>
       </div>
-      <div style="height:3px;background:rgba(255,255,255,.1);overflow:hidden">
-        <div id="workflow-progress-bar" style="height:100%;background:linear-gradient(90deg,#3498db 0%,#2ecc71 100%);width:8.33%;transition:width .3s ease"></div>
-      </div>
-    </div>
 
-    <main id="main">
+      <main id="main">
 
       <!-- VALIDATION -->
       <section id="sv" class="sec hidden">
@@ -2366,6 +2433,15 @@
             <div class="fg"><label>Data Controller Name</label><input id="ass_dc" placeholder="Data Controller"></div>
             <div class="fg"><label>Data Protection Officer</label><input id="ass_dpo" placeholder="DPO Name"></div>
             <div class="fg"><label>DPO Practice Number</label><input id="ass_dpopn" placeholder="00.00.664"></div>
+            <div class="fg">
+              <label>Assessment Type</label>
+              <select id="ass_type" style="width:100%;padding:.6rem;border-radius:4px;border:1px solid #ddd;">
+                <option value="self_assessment">Self Assessment</option>
+                <option value="voluntary">Voluntary Assessment</option>
+                <option value="routine_planned">Routine Planned Assessment</option>
+                <option value="unannounced">Unannounced Assessment</option>
+              </select>
+            </div>
           </div>
         </div>
         <div class="fa" style="margin-bottom:.9rem; justify-content: flex-start;">
@@ -2443,6 +2519,17 @@
                 </tr>
               </tbody>
             </table>
+          </div>
+        </div>
+
+        <!-- Personalized Recommendations -->
+        <div class="card" style="margin-top:1.5rem" id="recommendations_card">
+          <div class="ch">
+            <h3>Personalized Recommendations</h3>
+            <div class="sub">Based on your compliance score and assessment answers</div>
+          </div>
+          <div class="cb2" id="recommendations_content">
+            <p style="color:var(--slate)">Complete the assessment to see personalized recommendations.</p>
           </div>
         </div>
 
@@ -2696,20 +2783,21 @@
 
       <!-- DPO -->
       <section id="sdpo" class="sec hidden">
-        <div class="sh">
-          <div>
-            <h2>DPO Dashboard</h2>
-            <p>Organisation-wide compliance overview</p>
-          </div>
-          <div style="display:flex; gap:.5rem; flex-wrap:wrap">
-            <button class="btn-pri" style="width:auto;padding:.4rem 1rem;font-size: .8rem;"
+        <!-- Hero Banner -->
+        <div class="dashboard-hero">
+          <h1>Welcome to CDPA Compliance System</h1>
+          <p>Manage your organisation's Cyber & Data Protection Act compliance journey</p>
+          <div class="dashboard-actions">
+            <button class="btn-pri" style="width:auto;padding:.6rem 1.5rem;font-size: .9rem;background:white;background:linear-gradient(135deg,#27ae60,#1e8449);border:none;"
               onclick="startNewAssessment()">+ Start New Assessment</button>
-            <button class="btn-sec" style="width:auto;padding:.4rem 1rem;font-size: .8rem;"
+            <button class="btn-sec" style="width:auto;padding:.6rem 1.5rem;font-size: .9rem;border:1px solid white;color:white;background:rgba(255,255,255,0.1);"
               onclick="printDashboard()">&#128424;&#65039; Print Dashboard</button>
-            <button class="btn-sec" style="width:auto;padding:.4rem 1rem;font-size: .8rem;"
+            <button class="btn-sec" style="width:auto;padding:.6rem 1.5rem;font-size: .9rem;border:1px solid white;color:white;background:rgba(255,255,255,0.1);"
               onclick="downloadDashboardCSV()">&#128190; Download CSV</button>
           </div>
         </div>
+        
+        <!-- Statistics Cards -->
         <div class="dpostats" id="dpostats"></div>
         
         <!-- All Assessments -->
@@ -2763,11 +2851,9 @@
 
       <!-- ADMINISTRATION DASHBOARD -->
       <section id="sadmin" class="sec hidden">
-        <div class="sh">
-          <div>
-            <h2>&#9881; Administration Dashboard</h2>
-            <p>Manage users, audit trails, and system statistics</p>
-          </div>
+        <div class="dashboard-hero" style="background:linear-gradient(135deg,#1e5a7d 0%,#2c3e50 100%);">
+          <h1>System Administration</h1>
+          <p>Manage users, audit trails, and system configuration</p>
         </div>
         <div id="admin-content"></div>
       </section>
@@ -3662,6 +3748,7 @@
     var PERMS = {
       potraz_assessor: ['view_all', 'audit'],
       data_protection_officer: ['validate_controller', 'validate', 'view_all', 'gap', 'tech', 'ropa', 'dpia', 'audit', 'ssga'],
+      data_controller: ['validate', 'view_all', 'gap', 'tech', 'ropa', 'dpia', 'audit', 'ssga'],
       system_administrator: ['manage_users', 'audit', 'view_all']
     };
 
@@ -3718,7 +3805,7 @@
     }
 
     function fmtRole(r) {
-      return { potraz_assessor: 'POTRAZ Assessor', data_protection_officer: 'Data Protection Officer', system_administrator: 'System Administrator' }[r] || r;
+      return { potraz_assessor: 'POTRAZ Assessor', data_protection_officer: 'Data Protection Officer', system_administrator: 'System Administrator', data_controller: 'Data Controller' }[r] || r;
     }
 
     function initApp() {
@@ -3758,6 +3845,79 @@
     if (!gCtrl.dpopn || gCtrl.dpopn === '00.00.664') gCtrl.dpopn = generatePN();
     S.set('gCtrl', gCtrl);
 
+    async function saveOrgDetails() {
+      try {
+        const token = S.get('jwt');
+        await fetch('/api/organizations', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token
+          },
+          body: JSON.stringify({
+            name: gCtrl.org,
+            license_number: gCtrl.lic || null,
+            registration_number: gCtrl.reg || null,
+            dpo_name: gCtrl.dpo || null,
+            dpo_contact: gCtrl.dpoc || null,
+            controller_name: gCtrl.ctrl || null,
+            controller_address: gCtrl.addr || null,
+            controller_contact: gCtrl.contact || null
+          })
+        });
+      } catch (err) {
+        console.error('Failed to save org details:', err);
+      }
+    }
+
+    async function loadOrgDetails(orgName) {
+      try {
+        const token = S.get('jwt');
+        const res = await fetch('/api/organizations/' + encodeURIComponent(orgName), {
+          headers: {
+            'Authorization': 'Bearer ' + token
+          }
+        });
+        const data = await res.json();
+        if (data.organization) {
+          const org = data.organization;
+          Object.assign(gCtrl, {
+            org: org.name,
+            lic: org.license_number || '',
+            reg: org.registration_number || '',
+            dpo: org.dpo_name || '',
+            dpoc: org.dpo_contact || '',
+            ctrl: org.controller_name || '',
+            addr: org.controller_address || '',
+            contact: org.controller_contact || ''
+          });
+          S.set('gCtrl', gCtrl);
+          // Update all fields
+          syncCtrl();
+        }
+      } catch (err) {
+        console.error('Failed to load org details:', err);
+      }
+    }
+
+    function setupOrgFields() {
+      // Set up all org fields to load details on blur
+      const orgFieldIds = ['vorg', 'ass_org', 'dept_org', 'raci_org', 'cia_org', 'kpi_org', 'dp_org', 'sga_org', 't_org'];
+      orgFieldIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.onblur = async function() {
+            if (this.value && this.value.trim()) {
+              await loadOrgDetails(this.value.trim());
+            }
+          };
+          el.onchange = function() {
+            syncCtrl({ org: this.value });
+          };
+        }
+      });
+    }
+
     function syncCtrl(obj) {
       if (!obj) return;
       Object.assign(gCtrl, obj);
@@ -3794,6 +3954,8 @@
         CU.org = gCtrl.org;
         var uhd = document.getElementById('uh_dpo');
         if (uhd) uhd.textContent = gCtrl.dpo || 'Not Set';
+        // Save to backend when we have an org name
+        saveOrgDetails();
       }
 
       // Multi-module field sync
@@ -3824,22 +3986,22 @@
 
     // ========== GUIDED WORKFLOW SYSTEM ==========
     var WORKFLOW = [
-      { idx: 0, i: '&#8962;', l: 'Dashboard', s: 'sdpo', fn: 'loadDpo', role: 'dpo' },
-      { idx: 1, i: '&#9881;', l: 'Admin', s: 'sadmin', fn: 'loadAdminDashboard', role: 'system_administrator' },
-      { idx: 2, i: '&#9998;', l: 'Validation', s: 'sv', fn: 'buildQs', role: 'dpo' },
-      { idx: 3, i: '&#128203;', l: 'Compliance', s: 'sass', fn: 'buildAssessUI', role: 'both' },
-      { idx: 4, i: '&#9888;', l: 'Gap Analysis', s: 'sgap', fn: 'renderGap', role: 'both' },
-      { idx: 5, i: '&#128737;', l: 'Security Gap', s: 'ssga', fn: 'buildSGA', role: 'both' },
-      { idx: 6, i: '&#128221;', l: 'ROPA', s: 'sropa', fn: 'switchRopaTab', role: 'both' },
-      { idx: 7, i: '&#128187;', l: 'Tech Recs', s: 'stech', fn: 'buildTech', role: 'both' },
-      { idx: 8, i: '&#128269;', l: 'DPIA', s: 'sdpia', fn: 'switchDpia', role: 'both' },
-      { idx: 9, i: '&#128203;', l: 'RACI', s: 'sraci', fn: 'renderRaci', role: 'both' },
-      { idx: 10, i: '&#128200;', l: 'KPI', s: 'skpi', fn: 'renderKpi', role: 'both' },
-      { idx: 11, i: '&#128274;', l: 'CIA', s: 'scia', fn: 'renderCia', role: 'both' },
-      { idx: 12, i: '&#127970;', l: 'Dept Assess', s: 'sdept', fn: 'buildDept', role: 'both' },
-      { idx: 13, i: '&#128679;', l: 'Dept Rems', s: 'sdept_rems', fn: 'buildDeptRems', role: 'both' },
-      { idx: 14, i: '&#128202;', l: 'Reports', s: 'sreports', fn: 'buildReportsDashboard', role: 'both' },
-      { idx: 15, i: '&#128172;', l: 'Comments', s: 'scomments', fn: 'loadCommentsSection', role: 'both' }
+      { idx: 0, i: '<i class="fas fa-home"></i>', l: 'Dashboard', s: 'sdpo', fn: 'loadDpo', role: 'dpo' },
+      { idx: 1, i: '<i class="fas fa-cog"></i>', l: 'Admin', s: 'sadmin', fn: 'loadAdminDashboard', role: 'system_administrator' },
+      { idx: 2, i: '<i class="fas fa-clipboard-check"></i>', l: 'Validation', s: 'sv', fn: 'buildQs', role: 'dpo' },
+      { idx: 3, i: '<i class="fas fa-file-alt"></i>', l: 'Compliance', s: 'sass', fn: 'buildAssessUI', role: 'both' },
+      { idx: 4, i: '<i class="fas fa-exclamation-triangle"></i>', l: 'Gap Analysis', s: 'sgap', fn: 'renderGap', role: 'both' },
+      { idx: 5, i: '<i class="fas fa-shield-virus"></i>', l: 'Security Gap', s: 'ssga', fn: 'buildSGA', role: 'both' },
+      { idx: 6, i: '<i class="fas fa-book"></i>', l: 'ROPA', s: 'sropa', fn: 'switchRopaTab', role: 'both' },
+      { idx: 7, i: '<i class="fas fa-laptop-code"></i>', l: 'Tech Recs', s: 'stech', fn: 'buildTech', role: 'both' },
+      { idx: 8, i: '<i class="fas fa-lock"></i>', l: 'DPIA', s: 'sdpia', fn: 'switchDpia', role: 'both' },
+      { idx: 9, i: '<i class="fas fa-sitemap"></i>', l: 'RACI', s: 'sraci', fn: 'renderRaci', role: 'both' },
+      { idx: 10, i: '<i class="fas fa-chart-bar"></i>', l: 'KPI', s: 'skpi', fn: 'renderKpi', role: 'both' },
+      { idx: 11, i: '<i class="fas fa-key"></i>', l: 'CIA', s: 'scia', fn: 'renderCia', role: 'both' },
+      { idx: 12, i: '<i class="fas fa-building"></i>', l: 'Dept Assess', s: 'sdept', fn: 'buildDept', role: 'both' },
+      { idx: 13, i: '<i class="fas fa-tasks"></i>', l: 'Dept Rems', s: 'sdept_rems', fn: 'buildDeptRems', role: 'both' },
+      { idx: 14, i: '<i class="fas fa-chart-pie"></i>', l: 'Reports', s: 'sreports', fn: 'buildReportsDashboard', role: 'both' },
+      { idx: 15, i: '<i class="fas fa-comments"></i>', l: 'Comments', s: 'scomments', fn: 'loadCommentsSection', role: 'both' }
     ];
     var currentWorkflowIdx = 0;
     
@@ -3916,6 +4078,9 @@
         if (CU.role === 'system_administrator') {
           return true;
         }
+        if (CU.role === 'data_controller') {
+          return step.role === 'both' || step.role === 'dpo'; // Can see dashboard, validation, etc. but not admin; we can see same as dpo
+        }
         if (CU.role === 'potraz_assessor') {
           return step.l === 'Reports' || step.l === 'Comments';
         }
@@ -3927,7 +4092,7 @@
         d.className = 'ni';
         d.title = step.l;
         d.setAttribute('data-idx', step.idx);
-        d.innerHTML = step.i + ' <span style="margin-left:2px;font-size:9px">' + step.l + '</span>';
+        d.innerHTML = step.i + ' ' + step.l;
         d.onclick = (function(st, el) {
           return function() {
             goToWorkflowStep(st.idx);
@@ -3975,7 +4140,8 @@
       { k: 'q10', w: 1.0, t: 'Do you exercise professional judgement in the processing of personal data?' },
       { k: 'q11', w: 1.0, t: 'Do you have a direct relationship with the data subjects?' },
       { k: 'q12', w: 1.5, t: 'Do you have complete autonomy as to how personal data is processed and stored?' },
-      { k: 'q13', w: 1.0, t: 'Have you appointed data processors to process personal data on your behalf?' }
+      { k: 'q13', w: 1.0, t: 'Have you appointed data processors to process personal data on your behalf?' },
+      { k: 'q14', w: 1.0, t: 'Are your cameras facing outside on passages where people or clients are present?' }
     ];
 
     function buildQs() {
@@ -3992,6 +4158,7 @@
       });
       c.innerHTML = html;
       upScore();
+      upTier();
     }
 
     function setAns(k, v, btn) {
@@ -4000,6 +4167,7 @@
       for (var i = 0; i < btns.length; i++) { btns[i].className = btns[i].textContent.trim() === 'YES' ? 'ay' : 'an'; }
       btn.className = btn.textContent.trim() === 'YES' ? 'ay on' : 'an on';
       upScore();
+      upTier();
     }
 
     function upScore() {
@@ -4008,10 +4176,13 @@
       var pct = Math.round((yes / total) * 100 * 10) / 10;
       document.getElementById('lscore').textContent = pct + '%';
       document.getElementById('sbarfill').style.width = pct + '%';
-      document.getElementById('scnt').textContent = cnt + '/13 answered';
+      document.getElementById('scnt').textContent = cnt + '/14 answered';
     }
 
-    function getTier(n) {
+    function getTier(n, q14Answer) {
+      if (q14Answer === 'yes') {
+        return { tier: 4, fee: 2500, range: 'Tier 4 (Cameras facing outside)' };
+      }
       if (n >= 50 && n <= 1000) return { tier: 1, fee: 50, range: '50 to 1,000' };
       if (n >= 1001 && n <= 100000) return { tier: 2, fee: 300, range: '1,001 to 100,000' };
       if (n >= 100001 && n <= 500000) return { tier: 3, fee: 500, range: '100,001 to 500,000' };
@@ -4325,13 +4496,13 @@
           var v = deptCheckData[deptSectionKey][it.k];
           if (v) {
             answered++; 
-            if (v === 'yes') sectionScore += 1;
-            else if (v === 'partial') sectionScore += 0.5;
+            if (v === 'yes') sectionScore += 2;
+            else if (v === 'partial') sectionScore += 1;
             else if (v === 'na') unscored++;
           }
         });
         
-        var totalPossible = items.length - unscored;
+        var totalPossible = (items.length - unscored) * 2; // Max 2 points per item
         var pct = totalPossible > 0 ? Math.round((sectionScore / totalPossible) * 100) : 0;
         var color = pct >= 80 ? 'var(--green2)' : pct >= 50 ? 'var(--amber2)' : 'var(--red2)';
         if (answered === 0) color = 'var(--slate)';
@@ -4368,7 +4539,7 @@
         html += `</div></div>`;
       });
       // Update the Summary Score Box
-      var s_total = 0, s_yes = 0, s_partial = 0, s_no = 0, s_na = 0, s_answered = 0;
+      var s_total = 0, s_achieved = 0, s_yes = 0, s_partial = 0, s_no = 0, s_na = 0, s_answered = 0;
       Object.keys(deptCheckData).forEach(function(sk) {
         Object.keys(deptCheckData[sk]).forEach(function(ik) {
           var v = deptCheckData[sk][ik];
@@ -4376,13 +4547,17 @@
           else {
             s_total++;
             s_answered++;
-            if (v === 'yes') s_yes++;
-            else if (v === 'partial') s_partial++;
-            else if (v === 'no') s_no++;
+            if (v === 'yes') {
+              s_yes++;
+              s_achieved += 2;
+            } else if (v === 'partial') {
+              s_partial++;
+              s_achieved += 1;
+            } else if (v === 'no') s_no++;
           }
         });
       });
-      var overallPct = s_total > 0 ? Math.round(((s_yes + (s_partial * 0.5)) / s_total) * 100) : 0;
+      var overallPct = s_total > 0 ? Math.round((s_achieved / (s_total * 2)) * 100) : 0;
       var totalColor = overallPct >= 80 ? 'var(--green2)' : overallPct >= 50 ? 'var(--amber2)' : 'var(--red2)';
       
       var d_pct = document.getElementById('dept_total_pct');
@@ -4429,29 +4604,33 @@
       };
 
       // Calculate scores from new structure
-      var total = 0, yes = 0, partial = 0, na = 0;
+      var total = 0, achieved = 0, yes = 0, partial = 0, no = 0, na = 0;
       Object.keys(deptCheckData).forEach(function (sectionKey) {
         Object.keys(deptCheckData[sectionKey]).forEach(function (itemKey) {
           var val = deptCheckData[sectionKey][itemKey];
           if (val === 'na') {
             na++;
-          } else if (val === 'yes') {
-            yes++;
-            total++;
-          } else if (val === 'partial') {
-            partial += 0.5;
-            total++;
-          } else if (val === 'no') {
-            total++;
+          } else {
+            total++; // Count as one item (max 2 points)
+            if (val === 'yes') {
+              yes++;
+              achieved += 2;
+            } else if (val === 'partial') {
+              partial++;
+              achieved += 1;
+            } else if (val === 'no') {
+              no++;
+              // achieved += 0;
+            }
           }
         });
       });
 
-      var calcScore = total > 0 ? ((yes + partial) / total) * 100 : 0;
+      var calcScore = total > 0 ? (achieved / (total * 2)) * 100 : 0;
       res.score = Math.round(calcScore);
       res.yesCount = yes;
       res.partialCount = partial;
-      res.noCount = total - yes - partial;
+      res.noCount = no;
       res.naCount = na;
 
       if (API_MODE && API_TOKEN) {
@@ -4836,8 +5015,8 @@
     function upTier() {
       var n = parseInt(document.getElementById('vnum').value) || 0;
       var box = document.getElementById('tierbox');
-      if (n > 0) {
-        var t = getTier(n);
+      if (n > 0 || valAns.q14) {
+        var t = getTier(n, valAns.q14);
         box.className = 'tier-box';
         document.getElementById('tiern').textContent = t.tier > 0 ? 'Tier ' + t.tier : 'N/A';
         document.getElementById('tierf').textContent = t.tier > 0 ? '$' + t.fee + ' registration fee' : '';
@@ -4853,12 +5032,12 @@
       if (!org) { toast2('Please enter organisation name'); return; }
 
       var cnt = Object.keys(valAns).length;
-      if (cnt < 13) { toast2('Please answer all 13 questions (' + cnt + ' answered)'); return; }
+      if (cnt < 14) { toast2('Please answer all 14 questions (' + cnt + ' answered)'); return; }
       var total = 0, yes = 0;
       QS.forEach(function (q) { total += q.w; if (valAns[q.k] === 'yes') yes += q.w; });
       var pct = Math.round((yes / total) * 100 * 10) / 10;
       var ok = pct >= 60;
-      var tier = getTier(num);
+      var tier = getTier(num, valAns.q14);
 
       var ctrlDetails = {
         org: org,
@@ -5019,17 +5198,27 @@
       if (!CAssess) {
         var savedCtrl = S.get('gCtrl');
         if (savedCtrl) Object.assign(gCtrl, savedCtrl);
-        CAssess = { id: 'a' + Date.now(), org: gCtrl.org || CU.org || '', dc: gCtrl.ctrl || '', dpo: gCtrl.dpo || '', date: new Date().toISOString() };
+        CAssess = { id: 'a' + Date.now(), org: gCtrl.org || CU.org || '', dc: gCtrl.ctrl || '', dpo: gCtrl.dpo || '', date: new Date().toISOString(), assessment_type: 'self_assessment' };
       }
 
       var oEl = document.getElementById('ass_org');
       var dcEl = document.getElementById('ass_dc');
       var dpoEl = document.getElementById('ass_dpo');
       var dpnEl = document.getElementById('ass_dpopn');
-      if (oEl) { oEl.value = CAssess.org || ''; oEl.onchange = function () { syncCtrl({ org: this.value }); }; }
+      var typeEl = document.getElementById('ass_type');
+      if (oEl) { 
+        oEl.value = CAssess.org || ''; 
+        oEl.onchange = function () { syncCtrl({ org: this.value }); };
+        oEl.onblur = async function () {
+          if (this.value && this.value.trim()) {
+            await loadOrgDetails(this.value.trim());
+          }
+        };
+      }
       if (dcEl) { dcEl.value = CAssess.dc || ''; dcEl.onchange = function () { syncCtrl({ ctrl: this.value }); }; }
       if (dpoEl) { dpoEl.value = CAssess.dpo || ''; dpoEl.onchange = function () { syncCtrl({ dpo: this.value }); }; }
       if (dpnEl) { dpnEl.value = gCtrl.dpopn || ''; dpnEl.onchange = function () { syncCtrl({ dpopn: this.value }); }; }
+      if (typeEl) { typeEl.value = CAssess.assessment_type || 'self_assessment'; typeEl.onchange = function() { CAssess.assessment_type = this.value; }; }
 
       var tabs = document.getElementById('atabs');
       tabs.innerHTML = '';
@@ -5235,10 +5424,10 @@
       var t = 0, a = 0;
       Object.keys(DEPTS).forEach(function (d) {
         DEPTS[d].forEach(function (item) {
-          t += item.w;
+          t += item.w * 2; // Max 2 points per item
           var r = (checkData[d] || {})[item.k];
-          if (r === 'yes') a += item.w;
-          else if (r === 'partial') a += item.w * 0.5;
+          if (r === 'yes') a += item.w * 2;
+          else if (r === 'partial') a += item.w * 1;
         });
       });
       var pct = t > 0 ? Math.round((a / t) * 100 * 10) / 10 : 0;
@@ -5251,10 +5440,10 @@
       var t = 0, a = 0;
       Object.keys(DEPTS).forEach(function (d) {
         DEPTS[d].forEach(function (item) {
-          t += item.w;
+          t += item.w * 2; // Max 2 points per item
           var r = (checkData[d] || {})[item.k];
-          if (r === 'yes') a += item.w;
-          else if (r === 'partial') a += item.w * 0.5;
+          if (r === 'yes') a += item.w * 2;
+          else if (r === 'partial') a += item.w * 1;
         });
       });
       var score = t > 0 ? Math.round((a / t) * 100 * 10) / 10 : 0;
@@ -5290,6 +5479,7 @@
         ds.innerHTML += '<div class="dsrow" style="cursor:pointer; transition: background 0.2s" onmouseover="this.style.background=\'var(--bg2)\'" onmouseout="this.style.background=\'transparent\'" onclick="goBackToDept(\'' + dept.replace(/'/g, "\\'") + '\')"><span class="dsname">' + dept + '</span><div class="dsbar"><div class="dsbf" style="width:' + p + '%;background:' + c + '"></div></div><span class="dspct">' + p + '%</span></div>';
       });
       renderDeptSummaryInResults();
+      generateRecommendations(score, level, checkData);
       // Add Redo Assessment button if score < 50%
       var ract = document.querySelector('.ract');
       if (score < 50) {
@@ -5309,6 +5499,114 @@
       });
       renderDept(dept);
       document.getElementById('acont').parentElement.scrollTop = 0;
+    }
+
+    function generateRecommendations(score, level, checkData) {
+      var recEl = document.getElementById('recommendations_content');
+      if (!recEl) return;
+
+      var recs = [];
+
+      // Level-based recommendations
+      if (level === 'Fully Compliant') {
+        recs.push({
+          title: 'Great job!',
+          items: [
+            'Conduct regular audits to maintain compliance.',
+            'Document and review policies annually.',
+            'Train staff on new CDPA updates.',
+            'Consider certifying with relevant bodies.'
+          ],
+          icon: 'fas fa-trophy',
+          color: 'var(--green2)'
+        });
+      } else if (level === 'Substantially Compliant') {
+        recs.push({
+          title: 'Almost there!',
+          items: [
+            'Address partial answers to boost your score.',
+            'Focus on sections with the lowest scores.',
+            'Schedule a review within 30 days.',
+            'Train key staff on missing requirements.'
+          ],
+          icon: 'fas fa-star-half-alt',
+          color: 'var(--amber2)'
+        });
+      } else if (level === 'Partially Compliant') {
+        recs.push({
+          title: 'Significant improvements needed',
+          items: [
+            'Prioritize high-risk gaps first.',
+            'Develop an action plan with timelines.',
+            'Assign responsibility for each gap.',
+            'Conduct staff training urgently.'
+          ],
+          icon: 'fas fa-exclamation-triangle',
+          color: 'var(--red2)'
+        });
+      } else {
+        recs.push({
+          title: 'Immediate action required!',
+          items: [
+            'Engage a CDPA consultant for guidance.',
+            'Develop and implement a compliance roadmap.',
+            'Appoint a dedicated Data Protection Officer (if not already done).',
+            'Start ROPA and DPIA for high-risk processes immediately.'
+          ],
+          icon: 'fas fa-skull-crossbones',
+          color: 'var(--red2)'
+        });
+      }
+
+      // Gaps-based recommendations (collect questions answered No/Partial)
+      var gaps = [];
+      Object.keys(DEPTS).forEach(dept => {
+        DEPTS[dept].forEach(item => {
+          var r = (checkData[dept] || {})[item.k];
+          if (r === 'no' || r === 'partial') {
+            gaps.push({
+              dept: dept,
+              question: item.q,
+              answer: r,
+              weight: item.w
+            });
+          }
+        });
+      });
+
+      if (gaps.length > 0) {
+        // Sort gaps by weight descending
+        gaps.sort((a, b) => b.weight - a.weight);
+
+        // Take top 5 gaps
+        var topGaps = gaps.slice(0, 5);
+        recs.push({
+          title: 'Top priority gaps to address',
+          items: topGaps.map(g => {
+            return `<strong>${g.dept}:</strong> ${g.question} (answered: ${g.answer})`;
+          }),
+          icon: 'fas fa-list',
+          color: 'var(--gold3)'
+        });
+      }
+
+      // Render recommendations
+      var html = '';
+      recs.forEach(rec => {
+        html += `
+          <div style="margin-bottom:1.5rem">
+            <h4 style="margin:0 0 0.75rem 0; color:${rec.color}; display:flex; align-items:center; gap:0.5rem">
+              <i class="${rec.icon}"></i>
+              ${rec.title}
+            </h4>
+            <ul style="margin:0; padding-left:1.5rem">
+              ${rec.items.map(it => `<li style="margin-bottom:0.5rem">${it}</li>`).join('')}
+            </ul>
+          </div>
+        `;
+      });
+
+      recEl.innerHTML = html;
     }
 
     function redoAssessment() {
@@ -5993,11 +6291,31 @@
         assessments.forEach(function (a) { if (a.score >= 70) comp++; sumScore += (a.score || 0); });
         var avg = totalAssessments > 0 ? Math.round(sumScore / totalAssessments) : 0;
         document.getElementById('dpostats').innerHTML =
-          '<div class="stcard"><div class="stnum">' + totalAssessments + '</div><div class="stlbl">Assessments</div></div>' +
-          '<div class="stcard"><div class="stnum" style="color:var(--green2)">' + comp + '</div><div class="stlbl">Compliant</div></div>' +
-          '<div class="stcard"><div class="stnum">' + avg + '%</div><div class="stlbl">Avg Score</div></div>' +
-          '<div class="stcard"><div class="stnum" style="color:var(--gold2)">' + dpias.length + '</div><div class="stlbl">DPIAs</div></div>' +
-          '<div class="stcard"><div class="stnum" style="color:var(--blue2)">' + validations.length + '</div><div class="stlbl">Validations</div></div>';
+          '<div class="stat-card">' +
+            '<i class="stat-icon fas fa-clipboard-list"></i>' +
+            '<p class="stat-value">' + totalAssessments + '</p>' +
+            '<p class="stat-label">Assessments</p>' +
+          '</div>' +
+          '<div class="stat-card">' +
+            '<i class="stat-icon fas fa-check-circle" style="color:var(--green2)"></i>' +
+            '<p class="stat-value" style="color:var(--green2)">' + comp + '</p>' +
+            '<p class="stat-label">Compliant</p>' +
+          '</div>' +
+          '<div class="stat-card">' +
+            '<i class="stat-icon fas fa-chart-line"></i>' +
+            '<p class="stat-value">' + avg + '%</p>' +
+            '<p class="stat-label">Avg Score</p>' +
+          '</div>' +
+          '<div class="stat-card">' +
+            '<i class="stat-icon fas fa-shield-alt" style="color:var(--gold2)"></i>' +
+            '<p class="stat-value" style="color:var(--gold2)">' + dpias.length + '</p>' +
+            '<p class="stat-label">DPIAs</p>' +
+          '</div>' +
+          '<div class="stat-card">' +
+            '<i class="stat-icon fas fa-search" style="color:#2c7199"></i>' +
+            '<p class="stat-value" style="color:#2c7199">' + validations.length + '</p>' +
+            '<p class="stat-label">Validations</p>' +
+          '</div>';
         
         // Render assessments
         var html = '<table class="dt"><thead><tr><th>Organisation</th><th>User</th><th>Date</th><th>Score</th><th>Level</th></tr></thead><tbody>';

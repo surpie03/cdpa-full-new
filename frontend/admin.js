@@ -81,18 +81,18 @@ function paintUserView(){
       '<button class="adm-act adm-act-save" onclick="admSaveUser()">&#10003; Save</button>'+
       '<button class="adm-act" onclick="admResetForm()">Reset</button>'+
       '<button class="adm-act adm-act-warn" onclick="admResetPassword()">&#128274; Password Rollover</button>'+
-      '<button class="adm-act">Function Passwords</button>'+
-      '<button class="adm-act">Print User ID Card</button>'+
+      '<button class="adm-act" onclick="functionPasswords()">Function Passwords</button>'+
+      '<button class="adm-act" onclick="printUserIDCard()">Print User ID Card</button>'+
     '</div>'+
     '<div class="adm-actionbar-row">'+
       '<button class="adm-act adm-act-del" onclick="lockAllUsers()">Lock All Users</button>'+
       '<button class="adm-act adm-act-tog" onclick="unlockAllUsers()">Unlock All Users</button>'+
       '<button class="adm-act" onclick="admToggleActive()">Lock User</button>'+
       '<button class="adm-act" onclick="admToggleActive()">Unlock User</button>'+
-      '<button class="adm-act">Reset User MFA</button>'+
-      '<button class="adm-act">Reset All MFA</button>'+
-      '<button class="adm-act">Sessions</button>'+
-      '<button class="adm-act">Print RB Card</button>'+
+      '<button class="adm-act" onclick="resetUserMFA()">Reset User MFA</button>'+
+      '<button class="adm-act" onclick="resetAllMFA()">Reset All MFA</button>'+
+      '<button class="adm-act" onclick="sessions()">Sessions</button>'+
+      '<button class="adm-act" onclick="printRBCard()">Print RB Card</button>'+
       '<button class="adm-act adm-act-del" onclick="admDeleteUser()">&#128465; Delete</button>'+
     '</div>'
     :'<span style="color:#a8c4e0;font-size:.82rem">&#128274; View-only mode</span>';
@@ -119,13 +119,57 @@ function paintUserView(){
 }
 
 function lockAllUsers(){
-  if(!confirm('Lock ALL users?')) return;
-  admToast('Locking all users (demo)');
+  if(!confirm('Lock ALL users? This will deactivate all accounts except your own.')) return;
+  apiReq('PATCH','/admin/users/lock-all',null).then(function(r){
+    if(r.error){admAlert('Error: '+r.error);return;}
+    admToast('All users locked successfully!');
+    renderUserManagement();
+  }).catch(function(e){admToast('Locking all users (demo)');renderUserManagement();});
 }
 
 function unlockAllUsers(){
   if(!confirm('Unlock ALL users?')) return;
-  admToast('Unlocking all users (demo)');
+  apiReq('PATCH','/admin/users/unlock-all',null).then(function(r){
+    if(r.error){admAlert('Error: '+r.error);return;}
+    admToast('All users unlocked successfully!');
+    renderUserManagement();
+  }).catch(function(e){admToast('Unlocking all users (demo)');renderUserManagement();});
+}
+
+function functionPasswords(){
+  admToast('Function Passwords feature coming soon!');
+}
+
+function printUserIDCard(){
+  var u=getSelectedUser(); if(!u){admAlert('Select a user first.');return;}
+  admToast('Printing User ID Card for '+u.username+' (demo)');
+  window.print();
+}
+
+function resetUserMFA(){
+  var u=getSelectedUser(); if(!u){admAlert('Select a user first.');return;}
+  if(!confirm('Reset MFA for user "'+u.username+'"?')) return;
+  apiReq('PATCH','/admin/users/'+u.id+'/reset-mfa',null).then(function(r){
+    if(r.error){admAlert('Error: '+r.error);return;}
+    admToast('MFA reset successfully!');
+  }).catch(function(e){admToast('Resetting MFA (demo)');});
+}
+
+function resetAllMFA(){
+  if(!confirm('Reset MFA for ALL users?')) return;
+  apiReq('PATCH','/admin/users/reset-all-mfa',null).then(function(r){
+    if(r.error){admAlert('Error: '+r.error);return;}
+    admToast('All MFA reset successfully!');
+  }).catch(function(e){admToast('Resetting all MFA (demo)');});
+}
+
+function sessions(){
+  admToast('Sessions management feature coming soon!');
+}
+
+function printRBCard(){
+  admToast('Printing RB Card (demo)');
+  window.print();
 }
 
 function selectAdminUser(id){_selectedUserId=id;_adminDetailTab='general';paintUserView();}
